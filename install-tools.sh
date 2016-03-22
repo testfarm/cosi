@@ -1,8 +1,15 @@
 #!/bin/sh -f
 #
-# Install RPM packages needed to build COSI OCR agents and utilities
+# Install packages needed to build COSI OCR agents and utilities
 #
 
-PACKAGES="gcc gcc-c++ help2man netpbm-devel libtiff-devel libglade2-devel readline-devel"
+PACKAGES_rpm="gcc gcc-c++ lzip help2man netpbm-devel libtiff-devel libglade2-devel readline-devel"
+PACKAGES_deb="build-essential lzip help2man libnetpbm10-dev libtiff5-dev libglade2-dev libpng12-dev libreadline-dev"
 
-exec yum install $PACKAGES
+if [ -f /etc/os-release ]; then
+    echo "DISTRO = Debian/Ubuntu"
+    sudo apt-get install $PACKAGES_deb
+elif [ -f /etc/system-release ]; then
+    echo "DISTRO = RedHat/Fedora"
+    sudo yum install $PACKAGES_rpm
+fi
