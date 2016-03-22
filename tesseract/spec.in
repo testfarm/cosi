@@ -7,15 +7,15 @@
 # 
 
 
-Name:     tesseract-srv
-Version:  2.04
-Release:  2
+Name:     @NAME@
+Version:  @VERSION@
+Release:  @RELEASE@
 Summary:  The Tesseract Open source OCR Engine, with COSI server support
 Packager: Sylvain Giroudon <giroudon {at} users.sourceforge.net>
 
 Group:          Graphics
 License:        Apache License
-URL:            http://cosi.sourceforge.net
+URL:            https://github.com/testfarm/cosi
 
 %description
 The Tesseract OCR engine was one of the top 3 engines in the 1995 UNLV

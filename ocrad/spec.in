@@ -7,9 +7,9 @@
 # 
 
 
-Name:     ocrad-srv
-Version:  0.19
-Release:  1
+Name:     @NAME@
+Version:  @VERSION@
+Release:  @RELEASE@
 Summary:  The GNU Ocrad Open source OCR Engine, with COSI server support
 Packager: Sylvain Giroudon <giroudon {at} users.sourceforge.net>
 

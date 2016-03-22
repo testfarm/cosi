@@ -4,7 +4,10 @@
 ## Download + Build sequence for Tesseract with COSI server support
 ##
 
-VERSION = 2.04
+VERSION := 2.04
+PKGNAME := tesseract-srv
+PKGVERSION := $(VERSION)
+PKGRELEASE := 2
 
 URL = http://tesseract-ocr.googlecode.com/files
 TARBALL = tesseract-$(VERSION).tar.gz

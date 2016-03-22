@@ -7,15 +7,15 @@
 # 
 
 
-Name:     gocr-srv
-Version:  0.48
-Release:  2
+Name:     @NAME@
+Version:  @VERSION@
+Release:  @RELEASE@
 Summary:  The GOCR Open source OCR Engine, with COSI server support
 Packager: Sylvain Giroudon <giroudon {at} users.sourceforge.net>
 
 Group:          Graphics
 License:        GPL
-URL:            http://cosi.sourceforge.net
+URL:            https://github.com/testfarm/cosi
 
 %description
 GOCR is an optical character recognition program. 

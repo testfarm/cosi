@@ -25,7 +25,7 @@ You can build COSI-compliant versions of Tesseract-OCR and GOCR
 directly from the COSI source tree. It provides some Makefile's
 that automatically download the source code of OCR agents,
 apply COSI patches, compile everything, and optionnaly generate
-the corresponding RPM packages.
+the corresponding .rpm and .deb packages.
 
 ### Downloading and Compiling
 ```
@@ -38,12 +38,16 @@ $ make
 ```
 $ make rpm
 ```
+or
+```
+$ make deb
+```
 
 Then you can find the following packages, ready to be installed :
-- Tesseract-OCR: tesseract/rpm/tesseract-srv-*.rpm, 
-- GOCR: gocr/rpm/gocr-srv-*.rpm
-- GNU Ocrad: ocrad/rpm/ocrad-srv-*.rpm
-- COSI-utils: utils/rpm/cosi-utils-*.rpm
+- Tesseract-OCR: tesseract/out/tesseract-srv-*.{rpm,deb}
+- GOCR: gocr/out/gocr-srv-*.{rpm,deb}
+- GNU Ocrad: ocrad/out/ocrad-srv-*.{rpm,deb}
+- COSI-utils: utils/out/cosi-utils-*.{rpm,deb}
 
 ## The COSI utils
 ### Overview

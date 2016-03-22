@@ -6,6 +6,9 @@
 
 NAME = ocrad
 VERSION = 0.19
+PKGNAME := ocrad-srv
+PKGVERSION := $(VERSION)
+PKGRELEASE := 1
 
 URL = http://ftp.gnu.org/gnu/ocrad
 TARBALL = $(NAME)-$(VERSION).tar.gz

@@ -1,0 +1,7 @@
+Package: @NAME@
+Priority: optional
+Version: @VERSION@
+Architecture: @ARCH@
+Maintainer: Sylvain Giroudon <giroudon {at} users.sourceforge.net>
+Section: testfarm/app
+Description: The Tesseract Open source OCR Engine, with COSI server support

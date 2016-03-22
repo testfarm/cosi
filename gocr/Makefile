@@ -4,7 +4,10 @@
 ## Download + Build sequence for GOCR with COSI server support
 ##
 
-VERSION = 0.48
+VERSION := 0.48
+PKGNAME := gocr-srv
+PKGVERSION := $(VERSION)
+PKGRELEASE := 2
 
 URL = http://www-e.uni-magdeburg.de/jschulen/ocr
 TARBALL = gocr-$(VERSION).tar.gz
