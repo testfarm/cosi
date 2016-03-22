@@ -1,0 +1,281 @@
+Index: gocr-0.47/src/gocr.c
+===================================================================
+--- gocr-0.47.orig/src/gocr.c
++++ gocr-0.47/src/gocr.c
+@@ -118,12 +118,12 @@ static int timeval_subtract (struct time
+ }
+ #endif
+ 
+-static void process_arguments(job_t *job, int argn, char *argv[])
++
++static char *process_arguments(cfg_t *cfg, int argn, char *argv[])
+ {
+   int i;
+   char *s1;
+-
+-  assert(job);
++  char *fname = NULL;
+ 
+   if (argn <= 1) {
+     out_version(1);
+@@ -146,7 +146,7 @@ static void process_arguments(job_t *job
+ 	help();
+ 	break;
+       case 'i': /* input image file */
+-	job->src.fname = s1;
++	fname = s1;
+ 	i++;
+ 	break;
+       case 'e': /* logging file */
+@@ -163,7 +163,7 @@ static void process_arguments(job_t *job
+ 	i++;
+ 	break;
+       case 'p': /* database path */
+-	job->cfg.db_path=s1;
++	cfg->db_path=s1;
+ 	i++;
+ 	break;
+       case 'o': /* output file */
+@@ -175,47 +175,47 @@ static void process_arguments(job_t *job
+ 	i++;
+ 	break;
+       case 'f': /* output format */
+-        if (strcmp(s1, "ISO8859_1") == 0) job->cfg.out_format=ISO8859_1; else
+-        if (strcmp(s1, "TeX")       == 0) job->cfg.out_format=TeX; else
+-        if (strcmp(s1, "HTML")      == 0) job->cfg.out_format=HTML; else
+-        if (strcmp(s1, "XML")       == 0) job->cfg.out_format=XML; else
+-        if (strcmp(s1, "SGML")      == 0) job->cfg.out_format=SGML; else
+-        if (strcmp(s1, "UTF8")      == 0) job->cfg.out_format=UTF8; else
+-        if (strcmp(s1, "ASCII")     == 0) job->cfg.out_format=ASCII; else
++        if (strcmp(s1, "ISO8859_1") == 0) cfg->out_format=ISO8859_1; else
++        if (strcmp(s1, "TeX")       == 0) cfg->out_format=TeX; else
++        if (strcmp(s1, "HTML")      == 0) cfg->out_format=HTML; else
++        if (strcmp(s1, "XML")       == 0) cfg->out_format=XML; else
++        if (strcmp(s1, "SGML")      == 0) cfg->out_format=SGML; else
++        if (strcmp(s1, "UTF8")      == 0) cfg->out_format=UTF8; else
++        if (strcmp(s1, "ASCII")     == 0) cfg->out_format=ASCII; else
+         fprintf(stderr,"Warning: unknown format (-f %s)\n",s1);
+         i++;
+         break;
+       case 'c': /* list of chars (_ = not recognized chars) */
+-	job->cfg.lc = s1;
++	cfg->lc = s1;
+ 	i++;
+ 	break;
+       case 'C': /* char filter, default: NULL (all chars) */
+         /* ToDo: UTF8 input, wchar */
+-	job->cfg.cfilter = s1;
++	cfg->cfilter = s1;
+ 	i++;
+ 	break;
+       case 'd': /* dust size */
+-	job->cfg.dust_size = atoi(s1);
++	cfg->dust_size = atoi(s1);
+ 	i++;
+ 	break;
+       case 'l': /* grey level 0<160<=255, 0 for autodetect */
+-	job->cfg.cs = atoi(s1);
++	cfg->cs = atoi(s1);
+ 	i++;
+ 	break;
+       case 's': /* spacewidth/dots (0 = autodetect) */
+-	job->cfg.spc = atoi(s1);
++	cfg->spc = atoi(s1);
+ 	i++;
+ 	break;
+       case 'v': /* verbose mode */
+-	job->cfg.verbose |= atoi(s1);
++	cfg->verbose |= atoi(s1);
+ 	i++;
+ 	break;
+       case 'm': /* operation modes */
+-	job->cfg.mode |= atoi(s1);
++	cfg->mode |= atoi(s1);
+ 	i++;
+ 	break;
+       case 'n': /* numbers only */
+-	job->cfg.only_numbers = atoi(s1);
++	cfg->only_numbers = atoi(s1);
+ 	i++;
+ 	break;
+       case 'x': /* initialize progress output s1=fname */
+@@ -223,11 +223,11 @@ static void process_arguments(job_t *job
+ 	i++;
+ 	break;
+       case 'a': /* set certainty */
+-	job->cfg.certainty = atoi(s1);;
++	cfg->certainty = atoi(s1);;
+ 	i++;
+ 	break;
+       case 'u': /* output marker for unrecognized chars */
+-        job->cfg.unrec_marker = s1;
++        cfg->unrec_marker = s1;
+         i++;
+         break;
+       default:
+@@ -237,11 +237,14 @@ static void process_arguments(job_t *job
+     }
+     else /* argument can be filename v0.2.5 */ if (argv[i][0] != '-'
+ 						   || argv[i][1] == '\0' ) {
+-      job->src.fname = argv[i];
++      fname = argv[i];
+     }
+   }
++
++  return fname;
+ }
+ 
++
+ static void mark_start(job_t *job) {
+   assert(job);
+ 
+@@ -339,16 +342,21 @@ job_t *JOB;
+ // ------------------------------------------------------------- */
+ int main(int argn, char *argv[]) {
+   int multipnm=1;
++  char *fname;
++  cfg_t cfg;
+   job_t job;
+ 
++  /* Parse command arguments */
++  cfg_init(&cfg);
++  fname = process_arguments(&cfg, argn, argv);
++
+   JOB = &job;
+   setvbuf(stdout, (char *) NULL, _IONBF, 0);	/* not buffered */
+   
+   while (multipnm==1) {
+ 
+-    job_init(&job);
+-  
+-    process_arguments(&job, argn, argv);
++    job_init(&job, fname);
++    job.cfg = cfg;
+ 
+     mark_start(&job);
+ 
+Index: gocr-0.47/src/gocr.h
+===================================================================
+--- gocr-0.47.orig/src/gocr.h
++++ gocr-0.47/src/gocr.h
+@@ -139,6 +139,27 @@ typedef struct path {
+   /* (if more values need to be stored, the arrays are enlarged) */
+ } path_t;
+ 
++/* cfg_t contains processing options */
++typedef struct {
++  int cs;   /* critical grey value (pixel<cs => black pixel) */
++            /* range: 0..255,  0 means autodetection */
++  int spc;  /* spacewidth/dots (0 = autodetect); default value: 0 */
++  int mode; /* operation modes; default value: 0 */
++            /* operation mode (see --help) */
++  int dust_size;    /* dust size; default value: 10 */
++  int only_numbers; /* numbers only; default value: 0 */
++  int verbose; /* verbose mode; default value: 0 */
++               /* verbose option (see --help) */
++  FORMAT out_format; /* output format; default value: ISO8859_1*/
++  char *lc; /* debuglist of chars (_ = not recognized chars) */
++            /* default value: "_" */
++  char *db_path; /* pathname for database; default value: NULL */
++  char *cfilter; /* char filter; default value: NULL, ex: "A-Za-z" */
++  int  certainty; /* limit of certainty where chars are accepted as identified */
++                  /* in units of 100 (percent); 0..100; default 95 */
++  char *unrec_marker; /* output this string for every unrecognized char */
++} cfg_t;
++
+ /* job_t contains all information needed for an OCR task */
+ typedef struct job_s {
+   struct {       /* source data */
+@@ -168,32 +189,15 @@ typedef struct job_s {
+     int avX,avY;         /* average X,Y (avX=sumX/numC) */
+     int sumX,sumY,numC;  /* sum of all X,Y; num chars */
+   } res;
+-  struct {    /* configuration */
+-    int cs;   /* critical grey value (pixel<cs => black pixel) */
+-              /* range: 0..255,  0 means autodetection */
+-    int spc;  /* spacewidth/dots (0 = autodetect); default value: 0 */
+-    int mode; /* operation modes; default value: 0 */
+-              /* operation mode (see --help) */
+-    int dust_size;    /* dust size; default value: 10 */
+-    int only_numbers; /* numbers only; default value: 0 */
+-    int verbose; /* verbose mode; default value: 0 */ 
+-                 /* verbose option (see --help) */
+-    FORMAT out_format; /* output format; default value: ISO8859_1*/
+-    char *lc; /* debuglist of chars (_ = not recognized chars) */
+-              /* default value: "_" */
+-    char *db_path; /* pathname for database; default value: NULL */
+-    char *cfilter; /* char filter; default value: NULL, ex: "A-Za-z" */
+-        /* limit of certainty where chars are accepted as identified */
+-    int  certainty; /* in units of 100 (percent); 0..100; default 95 */
+-    char *unrec_marker; /* output this string for every unrecognized char */
+-  } cfg;
++  cfg_t cfg;  /* configuration */
+ } job_t;
+ 
+-/* initialze job structure */
+-void job_init(job_t *job);
++/* initialize job structure */
++extern void cfg_init(cfg_t *cfg);
++extern void job_init(job_t *job, char *fname);
+ 
+ /* free job structure */
+-void job_free(job_t *job);
++extern void job_free(job_t *job);
+ 
+ /*FIXME jb: remove JOB; */
+ extern job_t *JOB;
+Index: gocr-0.47/src/job.c
+===================================================================
+--- gocr-0.47.orig/src/job.c
++++ gocr-0.47/src/job.c
+@@ -21,10 +21,28 @@ Foundation, Inc., 59 Temple Place - Suit
+ #include "pgm2asc.h"
+ #include "gocr.h"
+ 
++/* initialize cfg structure */
++void cfg_init(cfg_t *cfg)
++{
++  cfg->cs = 0;
++  cfg->spc = 0;
++  cfg->mode = 0;
++  cfg->dust_size = -1; /* auto detect */
++  cfg->only_numbers = 0;
++  cfg->verbose = 0;
++  cfg->out_format = UTF8; /* old: ISO8859_1; */
++  cfg->lc = "_";
++  cfg->db_path = (char*)NULL;
++  cfg->cfilter = (char*)NULL;
++  cfg->certainty = 95;
++  cfg->unrec_marker = "_";
++}
++
+ /* initialize job structure */
+-void job_init(job_t *job) {
++void job_init(job_t *job, char *fname)
++{
+   /* init source */
+-  job->src.fname = "-";
++  job->src.fname = (fname == NULL) ? "-" : fname;
+   /* FIXME jb: init pix */  
+   job->src.p.p = NULL;
+ 
+@@ -48,18 +66,7 @@ void job_init(job_t *job) {
+   job->tmp.ppo.y = 0;
+ 
+   /* init cfg */
+-  job->cfg.cs = 0;
+-  job->cfg.spc = 0; 
+-  job->cfg.mode = 0;
+-  job->cfg.dust_size = -1; /* auto detect */
+-  job->cfg.only_numbers = 0;
+-  job->cfg.verbose = 0;
+-  job->cfg.out_format = UTF8; /* old: ISO8859_1; */
+-  job->cfg.lc = "_";
+-  job->cfg.db_path = (char*)NULL;
+-  job->cfg.cfilter = (char*)NULL;
+-  job->cfg.certainty = 95;
+-  job->cfg.unrec_marker = "_";
++  cfg_init(&job->cfg);
+ }
+ 
+ /* free job structure */

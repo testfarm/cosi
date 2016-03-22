@@ -1,0 +1,245 @@
+Index: ocrad-0.19/character.cc
+===================================================================
+--- ocrad-0.19.orig/character.cc
++++ ocrad-0.19/character.cc
+@@ -314,6 +314,26 @@ void Character::xprint( const Control & 
+   }
+ 
+ 
++void Character::mprint( const Control & control ) const throw()
++{
++	unsigned char ch = UCS::map_to_byte( gv[0].code );
++	if (!ch)
++		ch = '_';
++	if (ch == ' ')
++		std::fputs( "      <space ", control.exportfile );
++	else
++		std::fputs( "      <box ", control.exportfile );
++
++	std::fprintf(control.exportfile, "geometry=\"%dx%d+%d+%d\"",
++		     width(), height(), left(), top());
++
++	if (ch != ' ')
++		std::fprintf(control.exportfile, " value=\"%c\"", ch);
++
++	std::fputs( " />\n", control.exportfile );
++}
++
++
+ void Character::apply_filter( const Filter & filter ) throw()
+   {
+   if( filter.type() == Filter::none ) return;
+Index: ocrad-0.19/common.h
+===================================================================
+--- ocrad-0.19.orig/common.h
++++ ocrad-0.19/common.h
+@@ -83,10 +83,11 @@ struct Control
+   FILE *outfile, *exportfile;
+   int debug_level;
+   char filetype;
++  bool xml;
+ 
+   Control() throw()
+     : format( byte ), outfile( stdout ), exportfile( 0 ),
+-      debug_level( 0 ), filetype( '4' ) {}
++      debug_level( 0 ), filetype( '4' ), xml( false ) {}
+ 
+   bool set_format( const char * name ) throw();
+   };
+Index: ocrad-0.19/main.cc
+===================================================================
+--- ocrad-0.19.orig/main.cc
++++ ocrad-0.19/main.cc
+@@ -123,6 +123,7 @@ void show_help() throw()
+   std::printf( "  -F, --format=<fmt>       output format (byte, utf8)\n" );
+   std::printf( "  -i, --invert             invert image levels (white on black)\n" );
+   std::printf( "  -l, --layout             perform layout analysis\n" );
++  std::printf( "  -m, --xml                enable COSI-compliant XML format for OCR result file\n" );
+   std::printf( "  -o <file>                place the output into <file>\n" );
+   std::printf( "  -q, --quiet              suppress all messages\n" );
+   std::printf( "  -s, --scale=[-]<n>       scale input image by [1/]<n>\n" );
+@@ -192,7 +193,19 @@ int process_file( FILE *infile, const ch
+     if( control.debug_level == 0 )
+       {
+       if( control.outfile ) textpage.print( control );
+-      if( control.exportfile ) textpage.xprint( control );
++      if( control.exportfile ) {
++	      if (control.xml) {
++		      std::fprintf(control.exportfile, "<document id=\"%s\" geometry=\"%dx%d+%d+%d\">\n",
++				   infile_name,
++				   page_image.width(), page_image.height(),
++				   page_image.left(), page_image.top());
++		      textpage.mprint(control);
++		      std::fputs( "</document>\n", control.exportfile );
++	      }
++	      else {
++		      textpage.xprint(control);
++	      }
++      }
+       }
+     }
+   catch( Page_image::Error e ) { show_error( e.s ); return 2; }
+@@ -235,6 +248,7 @@ int main( const int argc, const char * a
+     { 'h', "help",      Arg_parser::no  },
+     { 'i', "invert",    Arg_parser::no  },
+     { 'l', "layout",    Arg_parser::no  },
++    { 'm', "xml",       Arg_parser::no  },
+     { 'o', 0,           Arg_parser::yes },
+     { 'q', "quiet",     Arg_parser::no  },
+     { 's', "scale",     Arg_parser::yes },
+@@ -280,6 +294,7 @@ int main( const int argc, const char * a
+       case 'h': show_help(); return 0;
+       case 'i': input_control.invert = true; break;
+       case 'l': input_control.layout = true; break;
++      case 'm': control.xml = true; break;
+       case 'o': outfile_name = arg; break;
+       case 'q': verbosity = -1; break;
+       case 's': input_control.scale = std::strtol( arg, 0, 0 ); break;
+@@ -328,9 +343,12 @@ int main( const int argc, const char * a
+         return 1;
+         }
+       }
+-    std::fprintf( control.exportfile,
+-                  "# Ocr Results File. Created by %s version %s\n",
+-                  Program_name, PROGVERSION );
++
++    if (!control.xml) {
++	    std::fprintf( control.exportfile,
++			  "# Ocr Results File. Created by %s version %s\n",
++			  Program_name, PROGVERSION );
++    }
+     }
+ 
+   // process any remaining command line arguments (input files)
+Index: ocrad-0.19/character.h
+===================================================================
+--- ocrad-0.19.orig/character.h
++++ ocrad-0.19/character.h
+@@ -75,6 +75,7 @@ public:
+   void dprint( const Control & control, const Rectangle & charbox,
+                bool graph, bool recursive ) const throw();
+   void xprint( const Control & control ) const throw();
++  void mprint( const Control & control ) const throw();
+ 
+   void recognize1( const Charset & charset, const Rectangle & charbox ) throw();
+   void apply_filter( const Filter & filter ) throw();
+Index: ocrad-0.19/textpage.cc
+===================================================================
+--- ocrad-0.19.orig/textpage.cc
++++ ocrad-0.19/textpage.cc
+@@ -555,3 +555,19 @@ void Textpage::xprint( const Control & c
+     tb.xprint( control );
+     }
+   }
++
++
++void Textpage::mprint( const Control & control ) const throw()
++{
++	if (!control.exportfile )
++		return;
++
++	std::fputs( "  <page>\n", control.exportfile );
++
++	for (int i = 0; i < textblocks(); ++i) {
++		const Textblock & tb = *(tbpv[i]);
++		tb.mprint( control );
++	}
++
++	std::fputs( "  </page>\n", control.exportfile );
++}
+Index: ocrad-0.19/textblock.cc
+===================================================================
+--- ocrad-0.19.orig/textblock.cc
++++ ocrad-0.19/textblock.cc
+@@ -459,6 +459,13 @@ void Textblock::xprint( const Control & 
+   }
+ 
+ 
++void Textblock::mprint( const Control & control ) const throw()
++{
++	for (int i = 0; i < textlines(); ++i)
++		tlpv[i]->mprint( control );
++}
++
++
+ void Textblock::cmark( Page_image & page_image ) const throw()
+   {
+   for( int i = 0; i < textlines(); ++i ) tlpv[i]->cmark( page_image );
+Index: ocrad-0.19/textblock.h
+===================================================================
+--- ocrad-0.19.orig/textblock.h
++++ ocrad-0.19/textblock.h
+@@ -33,6 +33,7 @@ public:
+   void print( const Control & control ) const throw();
+   void dprint( const Control & control, bool graph, bool recursive ) const throw();
+   void xprint( const Control & control ) const throw();
++  void mprint( const Control & control ) const throw();
+   void cmark( Page_image & page_image ) const throw();
+   void lmark( Page_image & page_image ) const throw();
+   };
+Index: ocrad-0.19/textline.cc
+===================================================================
+--- ocrad-0.19.orig/textline.cc
++++ ocrad-0.19/textline.cc
+@@ -312,6 +312,39 @@ void Textline::xprint( const Control & c
+   }
+ 
+ 
++void Textline::mprint( const Control & control ) const throw()
++{
++	int x0 = -1;
++	int y0 = -1;
++	int x1 = 0;
++	int y1 = 0;
++
++	/* Compute line geometry */
++	for (int i = 0; i < characters(); ++i) {
++		if ((x0 < 0) || (cpv[i]->left() < x0))
++			x0 = cpv[i]->left();
++		if (cpv[i]->right() > x1)
++			x1 = cpv[i]->right();
++		if ((y0 < 0) || (cpv[i]->top() < y0))
++			y0 = cpv[i]->top();
++		if (cpv[i]->bottom() > y1)
++			y1 = cpv[i]->bottom();
++	}
++
++	/* Ensure the line actually exists */
++	if ((x0 < 0) || (y0 < 0))
++		return;
++
++	std::fprintf(control.exportfile, "    <line geometry=\"%dx%d+%d+%d\">\n",
++		     x1-x0+1, y1-y0+1, x0, y0);
++
++	for (int i = 0; i < characters(); ++i)
++		cpv[i]->mprint(control);
++
++	std::fputs( "    </line>\n", control.exportfile );
++}
++
++
+ void Textline::cmark( Page_image & page_image ) const throw()
+   {
+   for( int i = 0; i < characters(); ++i )
+Index: ocrad-0.19/textline.h
+===================================================================
+--- ocrad-0.19.orig/textline.h
++++ ocrad-0.19/textline.h
+@@ -55,6 +55,7 @@ public:
+   void print( const Control & control ) const throw();
+   void dprint( const Control & control, bool graph, bool recursive ) const throw();
+   void xprint( const Control & control ) const throw();
++  void mprint( const Control & control ) const throw();
+   void cmark( Page_image & page_image ) const throw();
+ 
+   void recognize1( const Charset & charset ) const throw();
+Index: ocrad-0.19/textpage.h
+===================================================================
+--- ocrad-0.19.orig/textpage.h
++++ ocrad-0.19/textpage.h
+@@ -35,4 +35,5 @@ public:
+ 
+   void print( const Control & control ) const throw();
+   void xprint( const Control & control ) const throw();
++  void mprint( const Control & control ) const throw();
+   };

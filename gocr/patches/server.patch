@@ -1,0 +1,460 @@
+Index: gocr-0.48/man/man1/gocr.1
+===================================================================
+--- gocr-0.48.orig/man/man1/gocr.1
++++ gocr-0.48/man/man1/gocr.1
+@@ -109,6 +109,9 @@ set oprational mode; mode is a bitfield 
+ \fB\-n\fR \fIbool\fR
+ if \fIbool\fR is non-zero, only recognise numbers
+ (this is now obsolete, use -C "0123456789")
++.TP
++\fB\-S \fIshmid\fR
++Enable server mode on frame buffer mapped in shared memory \fIshmid\fR .
+ .PP
+ The verbosity is specified as a bitfield:
+ .TP 10
+Index: gocr-0.48/src/gocr.c
+===================================================================
+--- gocr-0.48.orig/src/gocr.c
++++ gocr-0.48/src/gocr.c
+@@ -2,6 +2,9 @@
+ This is a Optical-Character-Recognition program
+ Copyright (C) 2000-2009  Joerg Schulenburg
+ 
++Server mode added by Sylvain Giroudon
++for COSI support (Common OCR Service Interface).
++
+ This program is free software; you can redistribute it and/or
+ modify it under the terms of the GNU General Public License
+ as published by the Free Software Foundation; either version 2
+@@ -42,6 +45,7 @@ Foundation, Inc., 59 Temple Place - Suit
+ #include "ocr0.h"		/* only_numbers */
+ #include "progress.h"
+ #include "version.h"
++#include "server.h"
+ 
+ static void out_version(int v) {
+   fprintf(stderr, " Optical Character Recognition --- gocr "
+@@ -81,7 +85,8 @@ static void help(void) {
+ 	  " -m num    - operation modes (bitpattern, see manual)\n");
+   fprintf(stderr, /* string length less than 509 bytes for ISO C89 */
+ 	  " -a num    - value of certainty (in percent, 0..100, default=95)\n"
+-	  " -u string - output this string for every unrecognized character\n");
++	  " -u string - output this string for every unrecognized character\n"
++	  " -S shmid  - Enable server mode on frame buffer in shared memory\n");
+   fprintf(stderr, /* string length less than 509 bytes for ISO C89 */
+ 	  " examples:\n"
+ 	  "\tgocr -m 4 text1.pbm                   # do layout analyzis\n"
+@@ -235,6 +240,10 @@ static char *process_arguments(cfg_t *cf
+         cfg->unrec_marker = s1;
+         i++;
+         break;
++      case 'S': /* server mode */
++	server_setup(s1, cfg->verbose);
++	i++;
++	break;
+       default:
+ 	fprintf(stderr, "# unknown option use -h for help\n");
+       }
+@@ -312,7 +321,9 @@ static int read_picture(job_t *job) {
+   int rc=0;
+   assert(job);
+ 
+-  if (strstr(job->src.fname, ".pcx"))
++  if ( server_read(job->src.fname, &job->src.p, job->cfg.verbose) )
++    rc = 1;
++  else if (strstr(job->src.fname, ".pcx"))
+     readpcx(job->src.fname, &job->src.p, job->cfg.verbose);
+   else
+     rc=readpgm(job->src.fname, &job->src.p, job->cfg.verbose);
+Index: gocr-0.48/src/Makefile.in
+===================================================================
+--- gocr-0.48.orig/src/Makefile.in
++++ gocr-0.48/src/Makefile.in
+@@ -32,7 +32,8 @@ LIBOBJS=pgm2asc.o \
+ 	pnm.o \
+ 	pcx.o \
+ 	progress.o \
+-	job.o
++	job.o \
++	server.o
+ 
+ # these two lines are for cross-compiling, not tested
+ #srcdir = @srcdir@
+@@ -55,7 +56,7 @@ INSTALL=@INSTALL@
+ SHELL=@SHELL@
+ 
+ DEFS=@DEFS@
+-CPPFLAGS=@CPPFLAGS@
++CPPFLAGS=@CPPFLAGS@ -Wall
+ # to see the config.h
+ CFLAGS=@CFLAGS@ $(CPPFLAGS) -I../include $(DEFS)
+ LDFLAGS=@LDFLAGS@
+@@ -129,4 +130,3 @@ clean:
+ proper: clean
+ 	-rm -f gocr libPgm2asc.*
+ 	-rm -f gocr
+-	
+Index: gocr-0.48/src/server.c
+===================================================================
+--- /dev/null
++++ gocr-0.48/src/server.c
+@@ -0,0 +1,312 @@
++/*
++This is the COSI server mode management for
++for the GOCR Optical-Character-Recognition program
++Copyright (C) 2007-2008 Sylvain Giroudon
++
++The GOCR Optical-Character-Recognition program
++is Copyright (C) Joerg Schulenburg
++
++This program is free software; you can redistribute it and/or
++modify it under the terms of the GNU General Public License
++as published by the Free Software Foundation; either version 2
++of the License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with this program; if not, write to the Free Software
++Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
++
++*/
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <errno.h>
++#include <sys/shm.h>
++
++#include "server.h"
++
++
++#define SERVER_NAME "Gocr server"
++#define SERVER_GEOMETRY_NULL {0,0,0,0}
++
++#define SERVER_RED_WEIGHT   511  /* .499 */
++#define SERVER_GREEN_WEIGHT 396  /* .387 */
++#define SERVER_BLUE_WEIGHT  117  /* .114 */
++
++
++typedef struct {
++  unsigned int width, height;          /* RGB frame size */
++  unsigned int bpp, rowstride;
++  unsigned char buf[1];                /* RGB frame buffer */
++} server_buf_t;
++
++
++typedef struct {
++  int x, y;                   /* Window position */
++  unsigned int width, height; /* Window size */
++} server_geometry_t;
++
++
++static server_buf_t *fb = NULL;
++static int document_header = 0;
++
++
++static server_buf_t *server_buf_map(int shmid)
++{
++  void *ptr;
++
++  if ( (ptr = shmat(shmid, NULL, SHM_RDONLY)) == (void *) -1 ) {
++    fprintf(stderr, "Tesseract server: shmat(%d): %s\n", shmid, strerror(errno));
++    return NULL;
++  }
++
++  return (server_buf_t *) ptr;
++}
++
++
++static int server_geometry_parse(char *str, server_geometry_t *g)
++{
++  char *s = strdup(str);
++  char *sx, *sy;
++  char *sheight;
++
++  /* Retrieve window size */
++  if ( (sheight = strchr(s, 'x')) != NULL ) {
++    char cx;
++    int v;
++
++    *(sheight++) = '\0';
++    v = atoi(s);
++    if ( v < 0 )
++      v = 0;
++    g->width = v;
++
++    sx = sheight;
++    while ( (*sx != '\0') && (*sx != '+') && (*sx != '-') )
++      sx++;
++
++    cx = *sx;
++    *sx = '\0';
++    v = atoi(sheight);
++    *sx = cx;
++
++    if ( v < 0 )
++      v = 0;
++    g->height = v;
++  }
++  else {
++    sx = s;
++  }
++
++  /* Retrieve window position */
++  sy = sx;
++  while ( (*sy == '+') || (*sy == '-') )
++    sy++;
++  while ( (*sy != '\0') && (*sy != '+') && (*sy != '-') )
++    sy++;
++
++  if ( *sy != '\0' ) {
++    g->y = atoi(sy);
++    *sy = '\0';
++  }
++
++  g->x = atoi(sx);
++
++  free(s);
++
++  return 0;
++}
++
++
++static char *server_geometry_str(server_geometry_t *g)
++{
++  static char str[32];
++  snprintf(str, sizeof(str), "%ux%u+%d+%d", g->width, g->height, g->x, g->y);
++  return str;
++}
++
++
++static char *server_attr_parse(char *s, char **name, char **value)
++{
++  *name = NULL;
++  *value = NULL;
++
++  /* Strip leading blanks */
++  while ( (*s != '\0') && (*s <= ' ') )
++    s++;
++
++  if ( *s == '\0' )
++    return s;
++
++  /* Extract the attr name just before the equal sign (if any) */
++  *name = s;
++  while ( (*s > ' ') && (*s != '=') )
++    s++;
++
++  if ( *s == '=' )
++    *value = s+1;
++  else
++    *value = NULL;
++
++  if ( *s != '\0' )
++    *(s++) = '\0';
++
++  /* Extract the attr value (if any) */
++  if ( *value != NULL ) {
++    if ( *s == '"' ) {
++      (*value)++;
++      s++;
++
++      while ( (*s != '\0') && (*s != '"') )
++	s++;
++    }
++    else {
++      while ( *s > ' ' )
++	s++;
++    }
++
++    if ( *s != '\0' )
++      *(s++) = '\0';
++  }
++
++  /* Strip trailing blanks */
++  while ( (*s != '\0') && (*s <= ' ') )
++    s++;
++
++  return s;
++}
++
++
++int server_setup(char *args, int vvv)
++{
++  int shmid;
++
++  /* Get SHM id from arguments string */
++  if ( args == NULL ) {
++    fprintf(stderr, SERVER_NAME ": missing frame buffer shmid\n");
++    return -1;
++  }
++  shmid = strtoul(args, NULL, 0);
++
++  if ( vvv > 1 )
++    fprintf(stderr, "# " SERVER_NAME ": shmid=%d\n", shmid);
++
++  /* Hook frame control buffer */
++  if ( (fb = server_buf_map(shmid)) == NULL ) {
++    return -1;
++  }
++
++  document_header = 0;
++
++  return 0;
++}
++
++
++int server_read(char *name, pix *p, int vvv)
++{
++  char command[80];
++  char *s;
++  char *id = NULL;
++  int inv = 0;
++  server_geometry_t g;
++  unsigned char *ybuf;
++  unsigned int x, y, i;
++
++  /* Do nothing if server mode no initialized */
++  if ( fb == NULL ) {
++    return 0;
++  }
++
++  /* Terminate previous request cleanly */
++  if ( document_header ) {
++    printf("</document>\n");
++    document_header = 0;
++  }
++
++  /* Get request from stdin; Terminate processing if EOF */
++  if ( fgets(command, sizeof(command), stdin) == NULL )
++    return 0;
++  if ( vvv )
++    fprintf(stderr, "# " SERVER_NAME ": read request: %s", command);
++
++  /* Init default region geometry */
++  g.x = 0;
++  g.y = 0;
++  g.width = fb->width;
++  g.height = fb->height;
++
++  /* Extract request attributes */
++  s = command;
++  while ( *s != '\0' ) {
++    char *attr_name, *attr_value;
++
++    /* Parse current request parameter */
++    s = server_attr_parse(s, &attr_name, &attr_value);
++
++    if ( attr_name != NULL ) {
++      if ( strcmp(attr_name, "id") == 0 ) {
++	id = attr_value;
++      }
++      else if ( strcmp(attr_name, "geometry") == 0 ) {
++	server_geometry_parse(attr_value, &g);
++      }
++      else if ( strcmp(attr_name, "inv") == 0 ) {
++	if ( attr_value != NULL )
++	  inv = atoi(attr_value);
++	else
++	  inv = 1;
++      }
++      else {
++	/* Unrecognised attributes are ignored silently */
++      }
++    }
++  }
++
++  /* Dump response prologue */
++  printf("<document");
++  if ( id != NULL )
++    printf(" id=\"%s\"", id);
++  printf(" geometry=\"%s\"", server_geometry_str(&g));
++  if ( inv )
++    printf(" inv=\"1\"");
++  printf(">\n");
++  document_header = 1;
++
++  /* Alloc target pix buffer */
++  p->p = (unsigned char *) malloc(g.width * g.height);
++  p->x = g.width;
++  p->y = g.height;
++  p->bpp = 1;
++  i = 0;
++
++  /* Paste source window to target pix buffer */
++  ybuf = fb->buf + (fb->rowstride * g.y) + (fb->bpp * g.x);
++
++  for (y = 0; y < g.height; y++) {
++    unsigned char *xbuf = ybuf;
++
++    for (x = 0; x < g.width; x++) {
++      int sample
++	= ((SERVER_RED_WEIGHT   * xbuf[0] + 511)>>10)
++	+ ((SERVER_GREEN_WEIGHT * xbuf[1] + 511)>>10)
++	+ ((SERVER_BLUE_WEIGHT  * xbuf[2] + 511)>>10);
++
++      if ( inv )
++	sample = 255 - sample;
++
++      p->p[i++] = sample;
++      xbuf += fb->bpp;
++    }
++
++    ybuf += fb->rowstride;
++  }
++
++  /* Returning 1 means "ready for another request" */
++  return 1;
++}
++
+Index: gocr-0.48/src/server.h
+===================================================================
+--- /dev/null
++++ gocr-0.48/src/server.h
+@@ -0,0 +1,33 @@
++/*
++This is the COSI server mode management for
++for the GOCR Optical-Character-Recognition program
++Copyright (C) 2007-2008 Sylvain Giroudon
++
++The GOCR Optical-Character-Recognition program
++is Copyright (C) Joerg Schulenburg
++
++This program is free software; you can redistribute it and/or
++modify it under the terms of the GNU General Public License
++as published by the Free Software Foundation; either version 2
++of the License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with this program; if not, write to the Free Software
++Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
++
++*/
++
++#ifndef __GOCR_SERVER_H__
++#define __GOCR_SERVER_H__
++
++#include "pnm.h"
++
++extern int server_setup(char *args, int vvv);
++extern int server_read(char *name, pix *p, int vvv);
++
++#endif /* __GOCR_SERVER_H__ */
+Index: gocr-0.48/AUTHORS
+===================================================================
+--- gocr-0.48.orig/AUTHORS
++++ gocr-0.48/AUTHORS
+@@ -9,3 +9,4 @@ Bruno Barberi Gnecco <brunobg{at}users.s
+ Sylvain Giroudon <sylvain.giroudon{at}users.sourceforge.net>
+ 	* COSI extensions (Common OCR Service Interface)
+ 	  - XML output format options
++	  - Server mode with SHM frame buffer image source

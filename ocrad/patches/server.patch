@@ -1,0 +1,527 @@
+Index: ocrad-0.19/Makefile.in
+===================================================================
+--- ocrad-0.19.orig/Makefile.in
++++ ocrad-0.19/Makefile.in
+@@ -9,7 +9,7 @@ SHELL = /bin/sh
+ 
+ lib_objs = ocradlib.o
+ ocr_objs = common.o mask.o rational.o rectangle.o track.o \
+-           ucs.o page_image.o page_image_io.o \
++           ucs.o cosi.o page_image.o page_image_io.o page_image_shm.o \
+            bitmap.o blob.o profile.o feats.o feats_test0.o feats_test1.o \
+            character.o character_r11.o character_r12.o character_r13.o \
+            textline.o textline_r2.o textblock.o textpage.o
+@@ -58,6 +58,7 @@ mask.o          : mask.h
+ ocradlib.o      : common.h rectangle.h ucs.h track.h bitmap.h blob.h character.h page_image.h textline.h textblock.h textpage.h
+ page_image.o    : ocradlib.h mask.h track.h page_image.h
+ page_image_io.o : page_image.h
++page_image_shm.o : page_image.h
+ profile.o       : profile.h
+ textblock.o     : track.h character.h page_image.h textline.h textblock.h
+ textline.o      : track.h character.h page_image.h textline.h
+Index: ocrad-0.19/main.cc
+===================================================================
+--- ocrad-0.19.orig/main.cc
++++ ocrad-0.19/main.cc
+@@ -35,6 +35,7 @@
+ #include "rectangle.h"
+ #include "page_image.h"
+ #include "textpage.h"
++#include "cosi.h"
+ 
+ 
+ namespace {
+@@ -127,6 +128,7 @@ void show_help() throw()
+   std::printf( "  -o <file>                place the output into <file>\n" );
+   std::printf( "  -q, --quiet              suppress all messages\n" );
+   std::printf( "  -s, --scale=[-]<n>       scale input image by [1/]<n>\n" );
++  std::printf( "  -S, --server             enable COSI server mode (read commands from stdin)\n" );
+   std::printf( "  -t, --transform=<name>   try `--transform=help' for a list of names\n" );
+   std::printf( "  -T, --threshold=<n%%>     threshold for binarization (0-100%%)\n" );
+   std::printf( "  -u, --cut=<l,t,w,h>      cut input image by given rectangle\n" );
+@@ -162,16 +164,12 @@ const char * my_basename( const char * f
+   }
+ 
+ 
+-int process_file( FILE *infile, const char * infile_name,
++int process_image( Page_image & page_image, const char * infile_name,
+                   const Input_control & input_control,
+                   const Control & control ) throw()
+   {
+-  if( verbosity > 0 )
+-    std::fprintf( stderr, "processing file `%s'\n", infile_name );
+   try
+     {
+-    Page_image page_image( infile, input_control.invert );
+-
+     if( input_control.cut && !page_image.cut( input_control.ltwh ) )
+       {
+       if( verbosity > 0 )
+@@ -216,6 +214,89 @@ int process_file( FILE *infile, const ch
+ } // end namespace
+ 
+ 
++int process_file( FILE *infile, const char * infile_name,
++                  const Input_control & input_control,
++                  const Control & control ) throw()
++{
++	int ret = 0;
++
++	if( verbosity > 0 )
++		std::fprintf( stderr, "processing file `%s'\n", infile_name );
++	try {
++		Page_image page_image( infile, input_control.invert );
++		ret = process_image(page_image, infile_name, input_control, control);
++	}
++	catch ( Page_image::Error e ) {
++		show_error( e.s );
++		return 2;
++	}
++
++	return ret;
++}
++
++
++int process_input( const int shmid,
++		   Input_control & input_control,
++		   const Control & control ) throw()
++{
++	int ret = 0;
++	char command[80];
++	char *id = (char *) "";
++	bool invert = input_control.invert;
++	char *s;
++
++	/* Get command from stdin */
++	if (std::fgets(command, sizeof(command), stdin) == NULL)
++		return 1;
++
++	input_control.cut = false;
++
++	/* Parse command */
++	s = command;
++	while ( *s != '\0' ) {
++		char *attr_name, *attr_value;
++
++		/* Parse current request parameter */
++		s = cosi_attr_parse(s, &attr_name, &attr_value);
++
++		if ( attr_name != NULL ) {
++			if ( strcmp(attr_name, "id") == 0 ) {
++				id = attr_value;
++			}
++			else if ( strcmp(attr_name, "geometry") == 0 ) {
++				cosi_geometry_t g = {0,0,0,0};
++				cosi_geometry_parse(attr_value, &g);
++				input_control.ltwh[0] = g.x;
++				input_control.ltwh[1] = g.y;
++				input_control.ltwh[2] = g.width;
++				input_control.ltwh[3] = g.height;
++				input_control.cut = true;
++			}
++			else if ( strcmp(attr_name, "inv") == 0 ) {
++				if ( attr_value != NULL )
++					invert = atoi(attr_value);
++				else
++					invert = true;
++			}
++			else {
++				/* Unrecognised attributes are ignored silently */
++			}
++		}
++	}
++
++	try {
++		Page_image page_image(shmid, invert);
++		ret = process_image(page_image, id, input_control, control);
++	}
++	catch ( Page_image::Error e ) {
++		show_error( e.s );
++		return 2;
++	}
++
++	return ret;
++}
++
++
+ // 'infile' contains the scanned image (in pnm format) to be converted
+ // to text.
+ // 'outfile' is the destination for the text version of the scanned
+@@ -228,6 +309,7 @@ int main( const int argc, const char * a
+   Control control;
+   const char *outfile_name = 0, *exportfile_name = 0;
+   bool append = false, force = false;
++  bool server_mode = false;
+   invocation_name = argv[0];
+ 
+   const Arg_parser::Option options[] =
+@@ -252,6 +334,7 @@ int main( const int argc, const char * a
+     { 'o', 0,           Arg_parser::yes },
+     { 'q', "quiet",     Arg_parser::no  },
+     { 's', "scale",     Arg_parser::yes },
++    { 'S', "server",    Arg_parser::no },
+     { 't', "transform", Arg_parser::yes },
+     { 'T', "threshold", Arg_parser::yes },
+     { 'u', "cut",       Arg_parser::yes },
+@@ -298,6 +381,7 @@ int main( const int argc, const char * a
+       case 'o': outfile_name = arg; break;
+       case 'q': verbosity = -1; break;
+       case 's': input_control.scale = std::strtol( arg, 0, 0 ); break;
++      case 'S': server_mode = true; break;
+       case 't': if( !input_control.transformation.set( arg ) )
+                   { input_control.transformation.show_error( program_name, arg );
+                   return 1; }
+@@ -351,6 +435,33 @@ int main( const int argc, const char * a
+     }
+     }
+ 
++  if (server_mode) {
++	  int retval = 0;
++
++	  if (argind >= parser.arguments()) {
++		  std::fprintf(stderr, "Missing frame buffer shmid argument\n");
++		  retval = 2;
++	  }
++	  else {
++		  const char *s_shmid = parser.argument( argind++ ).c_str();
++		  const int shmid = atoi(s_shmid);
++
++		  do {
++			  retval = process_input(shmid, input_control, control);
++			  if (control.outfile)
++				  std::fflush( control.outfile );
++			  if (control.exportfile)
++				  std::fflush( control.exportfile );
++		  } while (retval == 0);
++	  }
++
++	  if (control.outfile)
++		  std::fclose( control.outfile );
++	  if (control.exportfile)
++		  std::fclose( control.exportfile );
++	  return retval;
++  }
++
+   // process any remaining command line arguments (input files)
+   FILE *infile = (argind < parser.arguments()) ? 0 : stdin;
+   const char *infile_name = "-";
+Index: ocrad-0.19/page_image.h
+===================================================================
+--- ocrad-0.19.orig/page_image.h
++++ ocrad-0.19/page_image.h
+@@ -51,6 +51,9 @@ public:
+   // Creates a reduced Page_image
+   Page_image( const Page_image & source, const int scale );
+ 
++  // Creates a Page_image from a COSI shared memory frame buffer
++  Page_image( int shmid, const bool invert );
++
+   using Rectangle::left;
+   using Rectangle::top;
+   using Rectangle::right;
+Index: ocrad-0.19/page_image_shm.cc
+===================================================================
+--- /dev/null
++++ ocrad-0.19/page_image_shm.cc
+@@ -0,0 +1,100 @@
++/**********************************************************************
++ * This is the COSI shared memory frame buffer management for
++ * for the OCRAD Optical-Character-Recognition program
++ * Copyright (C) 2010 Sylvain Giroudon
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ **********************************************************************/
++
++#include <algorithm>
++#include <cctype>
++#include <climits>
++#include <cstdio>
++#include <string>
++#include <vector>
++#include <sys/shm.h>
++
++#include "common.h"
++#include "rational.h"
++#include "rectangle.h"
++#include "page_image.h"
++#include "cosi.h"
++
++
++Page_image::Page_image( int shmid, const bool invert )
++	: Rectangle( 0, 0, 0, 0 )
++{
++	cosi_buf_t *fb;
++
++	if (verbosity > 0) {
++		std::fprintf( stderr, "Mapping frame buffer from shmid=%d\n", shmid);
++	}
++
++	/* Map frame buffer */
++	fb = cosi_buf_map(shmid);
++	if (fb == NULL)
++		throw Error("Cannot map shared memory frame buffer");
++
++	/* Check frame buffer dimensions */
++	if (fb->width == 0)
++		throw Error( "zero width in shm frame buffer." );
++	Rectangle::width(fb->width);
++
++	if (fb->height == 0)
++		throw Error( "zero height in shm frame buffer." );
++	Rectangle::height(fb->height);
++
++	if ((width() < 3) || (height() < 3))
++		throw Error( "image too small. Minimum size is 3x3." );
++	if ((INT_MAX / width()) < height())
++		throw Error( "image too big. `int' will overflow." );
++
++	/* Allocate data space */
++	data.resize( height() );
++	for( unsigned int row = 0; row < data.size(); ++row )
++		data[row].reserve( width() );
++
++	/* Setup pixel value limits */
++	maxval_ = 255;
++	threshold_ = maxval_ / 2;
++
++	/* Fill data area */
++	const int rows = height();
++	const int cols = width();
++	unsigned char *ybuf = fb->buf;
++
++	for ( int row = 0; row < rows; ++row ) {
++		unsigned char *xbuf = ybuf;
++
++		for ( int col = 0; col < cols; ++col ) {
++			const int r = xbuf[0];	// Red value
++			const int g = xbuf[1];	// Green value
++			const int b = xbuf[2];	// Blue value
++
++			int val;
++			if (!invert)
++				val = std::min( r, std::min( g, b ) );
++			else
++				val = 255 - std::max( r, std::max( g, b ) );
++
++			data[row].push_back( val );
++			xbuf += fb->bpp;
++		}
++
++		ybuf += fb->rowstride;
++	}
++
++	/* Unmap frame buffer */
++	cosi_buf_unmap(fb);
++}
+Index: ocrad-0.19/cosi.cc
+===================================================================
+--- /dev/null
++++ ocrad-0.19/cosi.cc
+@@ -0,0 +1,148 @@
++/**********************************************************************
++ * This is the COSI server mode management for
++ * for the OCRAD Optical-Character-Recognition program
++ * Copyright (C) 2007-2010 Sylvain Giroudon
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ **********************************************************************/
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <errno.h>
++#include <sys/shm.h>
++
++#include "cosi.h"
++
++
++cosi_buf_t *cosi_buf_map(int shmid)
++{
++  void *ptr;
++
++  if ( (ptr = shmat(shmid, NULL, SHM_RDONLY)) == (void *) -1 ) {
++    fprintf(stderr, "OCRAD server: shmat(%d): %s\n", shmid, strerror(errno));
++    return NULL;
++  }
++
++  return (cosi_buf_t *) ptr;
++}
++
++
++void cosi_buf_unmap(cosi_buf_t *fb)
++{
++	shmdt(fb);
++}
++
++
++void cosi_geometry_parse(char *str, cosi_geometry_t *g)
++{
++  char *s = strdup(str);
++  char *sx, *sy;
++  char *sheight;
++
++  /* Retrieve window size */
++  if ( (sheight = strchr(s, 'x')) != NULL ) {
++    char cx;
++    int v;
++
++    *(sheight++) = '\0';
++    v = atoi(s);
++    if ( v < 0 )
++      v = 0;
++    g->width = v;
++
++    sx = sheight;
++    while ( (*sx != '\0') && (*sx != '+') && (*sx != '-') )
++      sx++;
++
++    cx = *sx;
++    *sx = '\0';
++    v = atoi(sheight);
++    *sx = cx;
++
++    if ( v < 0 )
++      v = 0;
++    g->height = v;
++  }
++  else {
++    sx = s;
++  }
++
++  /* Retrieve window position */
++  sy = sx;
++  while ( (*sy == '+') || (*sy == '-') )
++    sy++;
++  while ( (*sy != '\0') && (*sy != '+') && (*sy != '-') )
++    sy++;
++
++  if ( *sy != '\0' ) {
++    g->y = atoi(sy);
++    *sy = '\0';
++  }
++
++  g->x = atoi(sx);
++
++  free(s);
++}
++
++
++char *cosi_attr_parse(char *s, char **name, char **value)
++{
++  *name = NULL;
++  *value = NULL;
++
++  /* Strip leading blanks */
++  while ( (*s != '\0') && (*s <= ' ') )
++    s++;
++
++  if ( *s == '\0' )
++    return s;
++
++  /* Extract the attr name just before the equal sign (if any) */
++  *name = s;
++  while ( (*s > ' ') && (*s != '=') )
++    s++;
++
++  if ( *s == '=' )
++    *value = s+1;
++  else
++    *value = NULL;
++
++  if ( *s != '\0' )
++    *(s++) = '\0';
++
++  /* Extract the attr value (if any) */
++  if ( *value != NULL ) {
++    if ( *s == '"' ) {
++      (*value)++;
++      s++;
++
++      while ( (*s != '\0') && (*s != '"') )
++	s++;
++    }
++    else {
++      while ( *s > ' ' )
++	s++;
++    }
++
++    if ( *s != '\0' )
++      *(s++) = '\0';
++  }
++
++  /* Strip trailing blanks */
++  while ( (*s != '\0') && (*s <= ' ') )
++    s++;
++
++  return s;
++}
+Index: ocrad-0.19/cosi.h
+===================================================================
+--- /dev/null
++++ ocrad-0.19/cosi.h
+@@ -0,0 +1,43 @@
++/**********************************************************************
++ * This is the COSI server mode management for
++ * for the OCRAD Optical-Character-Recognition program
++ * Copyright (C) 2007-2010 Sylvain Giroudon
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ **********************************************************************/
++
++#ifndef __COSI_H__
++#define __COSI_H__
++
++typedef struct {
++  unsigned int width, height;          /* RGB frame size */
++  unsigned int bpp, rowstride;
++  unsigned char buf[1];                /* RGB frame buffer */
++} cosi_buf_t;
++
++extern cosi_buf_t *cosi_buf_map(int shmid);
++extern void cosi_buf_unmap(cosi_buf_t *fb);
++
++
++typedef struct {
++  int x, y;                   /* Window position */
++  unsigned int width, height; /* Window size */
++} cosi_geometry_t;
++
++extern void cosi_geometry_parse(char *str, cosi_geometry_t *g);
++
++
++extern char *cosi_attr_parse(char *s, char **name, char **value);
++
++#endif // __COSI_H__
