@@ -23,7 +23,7 @@
 ##
 
 $(BINS):
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $<
