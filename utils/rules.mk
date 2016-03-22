@@ -1,8 +1,6 @@
 ##
-## $Id: rules.mk 50 2012-04-18 20:51:33Z giroudon $
-##
 ## COSI - The Common OCR Service Interface
-## Top-level Makefile rules
+## Common Makefile rules for building utilities
 ## 
 ## Copyright (C) 2007-2012 Sylvain Giroudon
 ##
@@ -32,10 +30,3 @@ clean::
 	$(RM) *~ *.o $(BINS)
 
 distclean: clean
-
-rpm: install
-	$(MKDIR) $(RPMDIR)/BUILD $(RPMDIR)/RPMS
-	find $(INSTALLDIR) -type f | sed 's|^'$(INSTALLDIR)'||' > $(RPMDIR)/BUILD/RPM.files
-	echo '%_topdir '$(RPMDIR) > $(HOME)/.rpmmacros
-	rpmbuild -bb $(spec) --buildroot $(INSTALLDIR) --target `arch`
-	find $(RPMDIR)/RPMS -name '*.rpm' -type f -exec $(MV) '{}' $(RPMDIR) ';'

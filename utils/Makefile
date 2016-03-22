@@ -1,6 +1,4 @@
 ##
-## $Id: Makefile 50 2012-04-18 20:51:33Z giroudon $
-##
 ## COSI - The Common OCR Service Interface
 ## Top-level Makefile
 ## 
@@ -22,9 +20,13 @@
 ## 02111-1307, USA.  
 ##
 
-export RPMDIR = $(shell pwd)/rpm
-export INSTALLDIR = $(RPMDIR)/INSTALL
-spec=$(RPMDIR)/RPM.spec
+VERSION := 0.2
+PKGNAME := cosi-utils
+PKGVERSION := $(VERSION)
+PKGRELEASE := 1
+
+export PKGDIR := $(shell pwd)/out
+export INSTALLDIR = $(PKGDIR)/root
 
 include defs.mk
 
@@ -48,3 +50,4 @@ clean::
 	done
 
 include rules.mk
+include ../pkg.mk
