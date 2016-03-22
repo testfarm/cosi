@@ -1,12 +1,12 @@
-Index: ocrad-0.19/character.cc
+Index: ocrad-0.25/character.cc
 ===================================================================
---- ocrad-0.19.orig/character.cc
-+++ ocrad-0.19/character.cc
-@@ -314,6 +314,26 @@ void Character::xprint( const Control & 
+--- ocrad-0.25.orig/character.cc	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/character.cc	2016-03-22 17:08:15.997872637 +0100
+@@ -347,6 +347,26 @@
    }
  
  
-+void Character::mprint( const Control & control ) const throw()
++void Character::mprint( const Control & control ) const
 +{
 +	unsigned char ch = UCS::map_to_byte( gv[0].code );
 +	if (!ch)
@@ -26,39 +26,40 @@ Index: ocrad-0.19/character.cc
 +}
 +
 +
- void Character::apply_filter( const Filter & filter ) throw()
+ void Character::apply_filter( const Filter::Type filter )
    {
-   if( filter.type() == Filter::none ) return;
-Index: ocrad-0.19/common.h
+   if( !guesses() ) return;
+Index: ocrad-0.25/common.h
 ===================================================================
---- ocrad-0.19.orig/common.h
-+++ ocrad-0.19/common.h
-@@ -83,10 +83,11 @@ struct Control
-   FILE *outfile, *exportfile;
+--- ocrad-0.25.orig/common.h	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/common.h	2016-03-22 17:08:15.997872637 +0100
+@@ -85,10 +85,11 @@
    int debug_level;
    char filetype;
+   bool utf8;
 +  bool xml;
  
-   Control() throw()
-     : format( byte ), outfile( stdout ), exportfile( 0 ),
--      debug_level( 0 ), filetype( '4' ) {}
-+      debug_level( 0 ), filetype( '4' ), xml( false ) {}
+   Control()
+     : outfile( stdout ), exportfile( 0 ),
+-      debug_level( 0 ), filetype( '4' ), utf8( false ) {}
++      debug_level( 0 ), filetype( '4' ), utf8( false ), xml( false ) {}
+   ~Control();
  
-   bool set_format( const char * name ) throw();
-   };
-Index: ocrad-0.19/main.cc
+   bool add_filter( const char * const program_name, const char * const name );
+Index: ocrad-0.25/main.cc
 ===================================================================
---- ocrad-0.19.orig/main.cc
-+++ ocrad-0.19/main.cc
-@@ -123,6 +123,7 @@ void show_help() throw()
-   std::printf( "  -F, --format=<fmt>       output format (byte, utf8)\n" );
-   std::printf( "  -i, --invert             invert image levels (white on black)\n" );
-   std::printf( "  -l, --layout             perform layout analysis\n" );
-+  std::printf( "  -m, --xml                enable COSI-compliant XML format for OCR result file\n" );
-   std::printf( "  -o <file>                place the output into <file>\n" );
-   std::printf( "  -q, --quiet              suppress all messages\n" );
-   std::printf( "  -s, --scale=[-]<n>       scale input image by [1/]<n>\n" );
-@@ -192,7 +193,19 @@ int process_file( FILE *infile, const ch
+--- ocrad-0.25.orig/main.cc	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/main.cc	2016-03-22 17:22:44.353840484 +0100
+@@ -140,7 +140,7 @@
+                "  -e, --filter=<name>       try '--filter=help' for a list of names\n"
+                "  -E, --user-filter=<file>  user-defined filter, see manual for format\n"
+                "  -f, --force               force overwrite of output file\n"
+-               "  -F, --format=<fmt>        output format (byte, utf8)\n"
++               "  -F, --format=<fmt>        output format (byte, utf8, xml)\n"
+                "  -i, --invert              invert image levels (white on black)\n"
+                "  -l, --layout              perform layout analysis\n"
+                "  -o, --output=<file>       place the output into <file>\n"
+@@ -235,7 +235,19 @@
      if( control.debug_level == 0 )
        {
        if( control.outfile ) textpage.print( control );
@@ -78,24 +79,8 @@ Index: ocrad-0.19/main.cc
 +      }
        }
      }
-   catch( Page_image::Error e ) { show_error( e.s ); return 2; }
-@@ -235,6 +248,7 @@ int main( const int argc, const char * a
-     { 'h', "help",      Arg_parser::no  },
-     { 'i', "invert",    Arg_parser::no  },
-     { 'l', "layout",    Arg_parser::no  },
-+    { 'm', "xml",       Arg_parser::no  },
-     { 'o', 0,           Arg_parser::yes },
-     { 'q', "quiet",     Arg_parser::no  },
-     { 's', "scale",     Arg_parser::yes },
-@@ -280,6 +294,7 @@ int main( const int argc, const char * a
-       case 'h': show_help(); return 0;
-       case 'i': input_control.invert = true; break;
-       case 'l': input_control.layout = true; break;
-+      case 'm': control.xml = true; break;
-       case 'o': outfile_name = arg; break;
-       case 'q': verbosity = -1; break;
-       case 's': input_control.scale = std::strtol( arg, 0, 0 ); break;
-@@ -328,9 +343,12 @@ int main( const int argc, const char * a
+   catch( Page_image::Error e ) { show_error( e.msg ); return 2; }
+@@ -380,9 +392,12 @@
          return 1;
          }
        }
@@ -111,29 +96,29 @@ Index: ocrad-0.19/main.cc
      }
  
    // process any remaining command line arguments (input files)
-Index: ocrad-0.19/character.h
+Index: ocrad-0.25/character.h
 ===================================================================
---- ocrad-0.19.orig/character.h
-+++ ocrad-0.19/character.h
-@@ -75,6 +75,7 @@ public:
+--- ocrad-0.25.orig/character.h	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/character.h	2016-03-22 17:08:15.997872637 +0100
+@@ -83,6 +83,7 @@
    void dprint( const Control & control, const Rectangle & charbox,
-                bool graph, bool recursive ) const throw();
-   void xprint( const Control & control ) const throw();
-+  void mprint( const Control & control ) const throw();
+                const bool graph, const bool recursive ) const;
+   void xprint( const Control & control ) const;
++  void mprint( const Control & control ) const;
  
-   void recognize1( const Charset & charset, const Rectangle & charbox ) throw();
-   void apply_filter( const Filter & filter ) throw();
-Index: ocrad-0.19/textpage.cc
+   void recognize1( const Charset & charset, const Rectangle & charbox );
+   void apply_filter( const Filter::Type filter );
+Index: ocrad-0.25/textpage.cc
 ===================================================================
---- ocrad-0.19.orig/textpage.cc
-+++ ocrad-0.19/textpage.cc
-@@ -555,3 +555,19 @@ void Textpage::xprint( const Control & c
+--- ocrad-0.25.orig/textpage.cc	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/textpage.cc	2016-03-22 17:08:15.997872637 +0100
+@@ -548,3 +548,19 @@
      tb.xprint( control );
      }
    }
 +
 +
-+void Textpage::mprint( const Control & control ) const throw()
++void Textpage::mprint( const Control & control ) const
 +{
 +	if (!control.exportfile )
 +		return;
@@ -147,45 +132,45 @@ Index: ocrad-0.19/textpage.cc
 +
 +	std::fputs( "  </page>\n", control.exportfile );
 +}
-Index: ocrad-0.19/textblock.cc
+Index: ocrad-0.25/textblock.cc
 ===================================================================
---- ocrad-0.19.orig/textblock.cc
-+++ ocrad-0.19/textblock.cc
-@@ -459,6 +459,13 @@ void Textblock::xprint( const Control & 
+--- ocrad-0.25.orig/textblock.cc	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/textblock.cc	2016-03-22 17:08:15.997872637 +0100
+@@ -521,6 +521,13 @@
    }
  
  
-+void Textblock::mprint( const Control & control ) const throw()
++void Textblock::mprint( const Control & control ) const
 +{
 +	for (int i = 0; i < textlines(); ++i)
 +		tlpv[i]->mprint( control );
 +}
 +
 +
- void Textblock::cmark( Page_image & page_image ) const throw()
+ void Textblock::cmark( Page_image & page_image ) const
    {
    for( int i = 0; i < textlines(); ++i ) tlpv[i]->cmark( page_image );
-Index: ocrad-0.19/textblock.h
+Index: ocrad-0.25/textblock.h
 ===================================================================
---- ocrad-0.19.orig/textblock.h
-+++ ocrad-0.19/textblock.h
-@@ -33,6 +33,7 @@ public:
-   void print( const Control & control ) const throw();
-   void dprint( const Control & control, bool graph, bool recursive ) const throw();
-   void xprint( const Control & control ) const throw();
-+  void mprint( const Control & control ) const throw();
-   void cmark( Page_image & page_image ) const throw();
-   void lmark( Page_image & page_image ) const throw();
+--- ocrad-0.25.orig/textblock.h	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/textblock.h	2016-03-22 17:08:15.997872637 +0100
+@@ -37,6 +37,7 @@
+   void print( const Control & control ) const;
+   void dprint( const Control & control, bool graph, bool recursive ) const;
+   void xprint( const Control & control ) const;
++  void mprint( const Control & control ) const;
+   void cmark( Page_image & page_image ) const;
+   void lmark( Page_image & page_image ) const;
    };
-Index: ocrad-0.19/textline.cc
+Index: ocrad-0.25/textline.cc
 ===================================================================
---- ocrad-0.19.orig/textline.cc
-+++ ocrad-0.19/textline.cc
-@@ -312,6 +312,39 @@ void Textline::xprint( const Control & c
+--- ocrad-0.25.orig/textline.cc	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/textline.cc	2016-03-22 17:08:15.997872637 +0100
+@@ -328,6 +328,39 @@
    }
  
  
-+void Textline::mprint( const Control & control ) const throw()
++void Textline::mprint( const Control & control ) const
 +{
 +	int x0 = -1;
 +	int y0 = -1;
@@ -218,28 +203,39 @@ Index: ocrad-0.19/textline.cc
 +}
 +
 +
- void Textline::cmark( Page_image & page_image ) const throw()
+ void Textline::cmark( Page_image & page_image ) const
    {
    for( int i = 0; i < characters(); ++i )
-Index: ocrad-0.19/textline.h
+Index: ocrad-0.25/textline.h
 ===================================================================
---- ocrad-0.19.orig/textline.h
-+++ ocrad-0.19/textline.h
-@@ -55,6 +55,7 @@ public:
-   void print( const Control & control ) const throw();
-   void dprint( const Control & control, bool graph, bool recursive ) const throw();
-   void xprint( const Control & control ) const throw();
-+  void mprint( const Control & control ) const throw();
-   void cmark( Page_image & page_image ) const throw();
+--- ocrad-0.25.orig/textline.h	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/textline.h	2016-03-22 17:08:15.997872637 +0100
+@@ -59,6 +59,7 @@
+   void dprint( const Control & control, const bool graph,
+                const bool recursive ) const;
+   void xprint( const Control & control ) const;
++  void mprint( const Control & control ) const;
+   void cmark( Page_image & page_image ) const;
  
-   void recognize1( const Charset & charset ) const throw();
-Index: ocrad-0.19/textpage.h
+   void recognize1( const Charset & charset ) const;
+Index: ocrad-0.25/textpage.h
 ===================================================================
---- ocrad-0.19.orig/textpage.h
-+++ ocrad-0.19/textpage.h
-@@ -35,4 +35,5 @@ public:
+--- ocrad-0.25.orig/textpage.h	2016-03-22 17:08:16.001872637 +0100
++++ ocrad-0.25/textpage.h	2016-03-22 17:08:15.997872637 +0100
+@@ -37,4 +37,5 @@
  
-   void print( const Control & control ) const throw();
-   void xprint( const Control & control ) const throw();
-+  void mprint( const Control & control ) const throw();
+   void print( const Control & control ) const;
+   void xprint( const Control & control ) const;
++  void mprint( const Control & control ) const;
    };
+Index: ocrad-0.25/common.cc
+===================================================================
+--- ocrad-0.25.orig/common.cc	2016-03-22 17:23:56.377837817 +0100
++++ ocrad-0.25/common.cc	2016-03-22 17:24:05.161837492 +0100
+@@ -208,5 +208,6 @@
+   {
+   if( std::strcmp( name, "byte" ) == 0 ) { utf8 = false; return true; }
+   if( std::strcmp( name, "utf8" ) == 0 ) { utf8 = true; return true; }
++  if( std::strcmp( name, "xml" ) == 0 ) { xml = true; return true; }
+   return false;
+   }

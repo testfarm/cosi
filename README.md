@@ -80,5 +80,5 @@ $ cosi-viewer <shmid> | gocr -f XML -F 10 -S <shmid>
 
 #### Using GNU Ocrad
 ```
-$ cosi-viewer <shmid> | ocrad -x - --xml -S <shmid>
+$ cosi-viewer <shmid> | ocrad -x - -Fxml -S <shmid>
 ```

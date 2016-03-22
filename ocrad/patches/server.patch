@@ -1,69 +1,68 @@
-Index: ocrad-0.19/Makefile.in
+Index: ocrad-0.25/Makefile.in
 ===================================================================
---- ocrad-0.19.orig/Makefile.in
-+++ ocrad-0.19/Makefile.in
-@@ -9,7 +9,7 @@ SHELL = /bin/sh
- 
+--- ocrad-0.25.orig/Makefile.in	2016-03-22 17:24:58.737835509 +0100
++++ ocrad-0.25/Makefile.in	2016-03-22 17:24:58.733835509 +0100
+@@ -10,6 +10,7 @@
  lib_objs = ocradlib.o
- ocr_objs = common.o mask.o rational.o rectangle.o track.o \
--           ucs.o page_image.o page_image_io.o \
-+           ucs.o cosi.o page_image.o page_image_io.o page_image_shm.o \
+ ocr_objs = common.o segment.o mask.o rational.o rectangle.o track.o \
+            iso_8859.o ucs.o user_filter.o page_image.o page_image_io.o \
++           cosi.o page_image_shm.o \
             bitmap.o blob.o profile.o feats.o feats_test0.o feats_test1.o \
             character.o character_r11.o character_r12.o character_r13.o \
             textline.o textline_r2.o textblock.o textpage.o
-@@ -58,6 +58,7 @@ mask.o          : mask.h
+@@ -60,6 +61,7 @@
  ocradlib.o      : common.h rectangle.h ucs.h track.h bitmap.h blob.h character.h page_image.h textline.h textblock.h textpage.h
- page_image.o    : ocradlib.h mask.h track.h page_image.h
- page_image_io.o : page_image.h
-+page_image_shm.o : page_image.h
+ page_image.o    : ocradlib.h rational.h segment.h mask.h track.h page_image.h
+ page_image_io.o : rational.h page_image.h
++page_image_shm.o : rational.h page_image.h
  profile.o       : profile.h
- textblock.o     : track.h character.h page_image.h textline.h textblock.h
- textline.o      : track.h character.h page_image.h textline.h
-Index: ocrad-0.19/main.cc
+ rational.o      : rational.h
+ segment.o       : segment.h
+Index: ocrad-0.25/main.cc
 ===================================================================
---- ocrad-0.19.orig/main.cc
-+++ ocrad-0.19/main.cc
-@@ -35,6 +35,7 @@
- #include "rectangle.h"
+--- ocrad-0.25.orig/main.cc	2016-03-22 17:24:58.737835509 +0100
++++ ocrad-0.25/main.cc	2016-03-22 17:24:58.733835509 +0100
+@@ -42,6 +42,7 @@
+ #include "user_filter.h"
  #include "page_image.h"
  #include "textpage.h"
 +#include "cosi.h"
  
  
  namespace {
-@@ -127,6 +128,7 @@ void show_help() throw()
-   std::printf( "  -o <file>                place the output into <file>\n" );
-   std::printf( "  -q, --quiet              suppress all messages\n" );
-   std::printf( "  -s, --scale=[-]<n>       scale input image by [1/]<n>\n" );
-+  std::printf( "  -S, --server             enable COSI server mode (read commands from stdin)\n" );
-   std::printf( "  -t, --transform=<name>   try `--transform=help' for a list of names\n" );
-   std::printf( "  -T, --threshold=<n%%>     threshold for binarization (0-100%%)\n" );
-   std::printf( "  -u, --cut=<l,t,w,h>      cut input image by given rectangle\n" );
-@@ -162,16 +164,12 @@ const char * my_basename( const char * f
+@@ -146,6 +147,7 @@
+                "  -o, --output=<file>       place the output into <file>\n"
+                "  -q, --quiet               suppress all messages\n"
+                "  -s, --scale=[-]<n>        scale input image by [1/]<n>\n"
++               "  -S, --server              enable COSI server mode (read commands from stdin)\n"
+                "  -t, --transform=<name>    try '--transform=help' for a list of names\n"
+                "  -T, --threshold=<n%%>      threshold for binarization (0-100%%)\n"
+                "  -u, --cut=<l,t,w,h>       cut input image by given rectangle\n"
+@@ -187,16 +189,12 @@
    }
  
  
--int process_file( FILE *infile, const char * infile_name,
-+int process_image( Page_image & page_image, const char * infile_name,
+-int process_file( FILE * const infile, const char * const infile_name,
++int process_image( Page_image & page_image, const char * const infile_name,
                    const Input_control & input_control,
-                   const Control & control ) throw()
+                   const Control & control )
    {
--  if( verbosity > 0 )
--    std::fprintf( stderr, "processing file `%s'\n", infile_name );
+-  if( verbosity >= 1 )
+-    std::fprintf( stderr, "processing file '%s'\n", infile_name );
    try
      {
 -    Page_image page_image( infile, input_control.invert );
 -
-     if( input_control.cut && !page_image.cut( input_control.ltwh ) )
+     if( input_control.cut )
        {
-       if( verbosity > 0 )
-@@ -216,6 +214,89 @@ int process_file( FILE *infile, const ch
+       if( page_image.cut( input_control.ltwh ) )
+@@ -258,6 +256,89 @@
  } // end namespace
  
  
-+int process_file( FILE *infile, const char * infile_name,
++int process_file( FILE *infile, const char * const infile_name,
 +                  const Input_control & input_control,
-+                  const Control & control ) throw()
++                  const Control & control )
 +{
 +	int ret = 0;
 +
@@ -74,7 +73,7 @@ Index: ocrad-0.19/main.cc
 +		ret = process_image(page_image, infile_name, input_control, control);
 +	}
 +	catch ( Page_image::Error e ) {
-+		show_error( e.s );
++		show_error( e.msg );
 +		return 2;
 +	}
 +
@@ -136,7 +135,7 @@ Index: ocrad-0.19/main.cc
 +		ret = process_image(page_image, id, input_control, control);
 +	}
 +	catch ( Page_image::Error e ) {
-+		show_error( e.s );
++		show_error( e.msg );
 +		return 2;
 +	}
 +
@@ -147,23 +146,23 @@ Index: ocrad-0.19/main.cc
  // 'infile' contains the scanned image (in pnm format) to be converted
  // to text.
  // 'outfile' is the destination for the text version of the scanned
-@@ -228,6 +309,7 @@ int main( const int argc, const char * a
+@@ -270,6 +351,7 @@
    Control control;
-   const char *outfile_name = 0, *exportfile_name = 0;
+   const char * outfile_name = 0, * exportfile_name = 0;
    bool append = false, force = false;
 +  bool server_mode = false;
    invocation_name = argv[0];
  
    const Arg_parser::Option options[] =
-@@ -252,6 +334,7 @@ int main( const int argc, const char * a
-     { 'o', 0,           Arg_parser::yes },
-     { 'q', "quiet",     Arg_parser::no  },
-     { 's', "scale",     Arg_parser::yes },
-+    { 'S', "server",    Arg_parser::no },
-     { 't', "transform", Arg_parser::yes },
-     { 'T', "threshold", Arg_parser::yes },
-     { 'u', "cut",       Arg_parser::yes },
-@@ -298,6 +381,7 @@ int main( const int argc, const char * a
+@@ -294,6 +376,7 @@
+     { 'o', "output",      Arg_parser::yes },
+     { 'q', "quiet",       Arg_parser::no  },
+     { 's', "scale",       Arg_parser::yes },
++    { 'S', "server",      Arg_parser::no  },
+     { 't', "transform",   Arg_parser::yes },
+     { 'T', "threshold",   Arg_parser::yes },
+     { 'u', "cut",         Arg_parser::yes },
+@@ -342,6 +425,7 @@
        case 'o': outfile_name = arg; break;
        case 'q': verbosity = -1; break;
        case 's': input_control.scale = std::strtol( arg, 0, 0 ); break;
@@ -171,7 +170,7 @@ Index: ocrad-0.19/main.cc
        case 't': if( !input_control.transformation.set( arg ) )
                    { input_control.transformation.show_error( program_name, arg );
                    return 1; }
-@@ -351,6 +435,33 @@ int main( const int argc, const char * a
+@@ -400,6 +484,33 @@
      }
      }
  
@@ -203,15 +202,15 @@ Index: ocrad-0.19/main.cc
 +  }
 +
    // process any remaining command line arguments (input files)
-   FILE *infile = (argind < parser.arguments()) ? 0 : stdin;
+   FILE * infile = (argind < parser.arguments()) ? 0 : stdin;
    const char *infile_name = "-";
-Index: ocrad-0.19/page_image.h
+Index: ocrad-0.25/page_image.h
 ===================================================================
---- ocrad-0.19.orig/page_image.h
-+++ ocrad-0.19/page_image.h
-@@ -51,6 +51,9 @@ public:
-   // Creates a reduced Page_image
-   Page_image( const Page_image & source, const int scale );
+--- ocrad-0.25.orig/page_image.h	2016-03-22 17:24:58.737835509 +0100
++++ ocrad-0.25/page_image.h	2016-03-22 17:24:58.733835509 +0100
+@@ -29,6 +29,9 @@
+     explicit Error( const char * const s ) : msg( s ) {}
+     };
  
 +  // Creates a Page_image from a COSI shared memory frame buffer
 +  Page_image( int shmid, const bool invert );
@@ -219,11 +218,11 @@ Index: ocrad-0.19/page_image.h
    using Rectangle::left;
    using Rectangle::top;
    using Rectangle::right;
-Index: ocrad-0.19/page_image_shm.cc
+Index: ocrad-0.25/page_image_shm.cc
 ===================================================================
---- /dev/null
-+++ ocrad-0.19/page_image_shm.cc
-@@ -0,0 +1,100 @@
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ ocrad-0.25/page_image_shm.cc	2016-03-22 17:24:58.733835509 +0100
+@@ -0,0 +1,101 @@
 +/**********************************************************************
 + * This is the COSI shared memory frame buffer management for
 + * for the OCRAD Optical-Character-Recognition program
@@ -249,6 +248,7 @@ Index: ocrad-0.19/page_image_shm.cc
 +#include <cstdio>
 +#include <string>
 +#include <vector>
++#include <stdint.h>
 +#include <sys/shm.h>
 +
 +#include "common.h"
@@ -324,10 +324,10 @@ Index: ocrad-0.19/page_image_shm.cc
 +	/* Unmap frame buffer */
 +	cosi_buf_unmap(fb);
 +}
-Index: ocrad-0.19/cosi.cc
+Index: ocrad-0.25/cosi.cc
 ===================================================================
---- /dev/null
-+++ ocrad-0.19/cosi.cc
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ ocrad-0.25/cosi.cc	2016-03-22 17:24:58.733835509 +0100
 @@ -0,0 +1,148 @@
 +/**********************************************************************
 + * This is the COSI server mode management for
@@ -477,10 +477,10 @@ Index: ocrad-0.19/cosi.cc
 +
 +  return s;
 +}
-Index: ocrad-0.19/cosi.h
+Index: ocrad-0.25/cosi.h
 ===================================================================
---- /dev/null
-+++ ocrad-0.19/cosi.h
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ ocrad-0.25/cosi.h	2016-03-22 17:24:58.733835509 +0100
 @@ -0,0 +1,43 @@
 +/**********************************************************************
 + * This is the COSI server mode management for

@@ -5,13 +5,13 @@
 ##
 
 NAME = ocrad
-VERSION = 0.19
+VERSION = 0.25
 PKGNAME := ocrad-srv
 PKGVERSION := $(VERSION)
 PKGRELEASE := 1
 
 URL = http://ftp.gnu.org/gnu/ocrad
-TARBALL = $(NAME)-$(VERSION).tar.gz
+TARBALL = $(NAME)-$(VERSION).tar.lz
 
 SRCDIR = $(NAME)-$(VERSION)
 BIN = $(SRCDIR)/$(NAME)
@@ -28,10 +28,10 @@ $(SRCDIR)/cosi.h: $(SRCDIR)/patches/series
 	(cd $(SRCDIR) && quilt push -a)
 
 $(SRCDIR)/patches/series: $(TARBALL)
-	tar xfz $(TARBALL)
+	tar xfa $(TARBALL)
 	(cd $(SRCDIR) && ln -sf ../patches .)
 
-%.tar.gz:
+%.tar.lz:
 	wget -N $(URL)/$@
 
 install: $(BIN)
