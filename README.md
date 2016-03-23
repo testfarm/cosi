@@ -73,7 +73,7 @@ While keeping the cosi-cmd utility running, launch the cosi-viewer utility and p
 
 #### Using Tesseract-OCR
 ```
-$ cosi-viewer <shmid> | tesseract <shmid> - batch.nochop server
+$ cosi-viewer <shmid> | tesseract-srv <shmid>
 ```
 
 #### Using GOCR
