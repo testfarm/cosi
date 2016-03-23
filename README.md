@@ -9,8 +9,8 @@ COSI is an open standard targeted at using different OCR (Optical Character Reco
 
 COSI has been successfully implemented and experimented on the following well-known open source OCR applications:
 - Tesseract-OCR: version 2.04
-- GOCR: version 0.48
-- GNU Ocrad: version 0.19
+- GNU Ocrad: version 0.25
+- GOCR: version 0.50
 
 ## Resources
 - The detailed technical description of COSI: http://www.testfarm.org/documents/IP090002-en%20COSI%20-%20The%20Common%20OCR%20Service%20Interface.3.pdf
