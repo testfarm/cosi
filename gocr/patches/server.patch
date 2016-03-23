@@ -1,8 +1,8 @@
-Index: gocr-0.48/man/man1/gocr.1
+Index: gocr-0.50/man/man1/gocr.1
 ===================================================================
---- gocr-0.48.orig/man/man1/gocr.1
-+++ gocr-0.48/man/man1/gocr.1
-@@ -109,6 +109,9 @@ set oprational mode; mode is a bitfield 
+--- gocr-0.50.orig/man/man1/gocr.1	2016-03-23 10:51:10.863511252 +0100
++++ gocr-0.50/man/man1/gocr.1	2016-03-23 10:51:10.859511252 +0100
+@@ -109,6 +109,9 @@
  \fB\-n\fR \fIbool\fR
  if \fIbool\fR is non-zero, only recognise numbers
  (this is now obsolete, use -C "0123456789")
@@ -12,13 +12,13 @@ Index: gocr-0.48/man/man1/gocr.1
  .PP
  The verbosity is specified as a bitfield:
  .TP 10
-Index: gocr-0.48/src/gocr.c
+Index: gocr-0.50/src/gocr.c
 ===================================================================
---- gocr-0.48.orig/src/gocr.c
-+++ gocr-0.48/src/gocr.c
+--- gocr-0.50.orig/src/gocr.c	2016-03-23 10:51:10.863511252 +0100
++++ gocr-0.50/src/gocr.c	2016-03-23 10:51:10.859511252 +0100
 @@ -2,6 +2,9 @@
  This is a Optical-Character-Recognition program
- Copyright (C) 2000-2009  Joerg Schulenburg
+ Copyright (C) GPLv2 2000-2013  Joerg Schulenburg
  
 +Server mode added by Sylvain Giroudon
 +for COSI support (Common OCR Service Interface).
@@ -26,7 +26,7 @@ Index: gocr-0.48/src/gocr.c
  This program is free software; you can redistribute it and/or
  modify it under the terms of the GNU General Public License
  as published by the Free Software Foundation; either version 2
-@@ -42,6 +45,7 @@ Foundation, Inc., 59 Temple Place - Suit
+@@ -42,6 +45,7 @@
  #include "ocr0.h"		/* only_numbers */
  #include "progress.h"
  #include "version.h"
@@ -34,7 +34,7 @@ Index: gocr-0.48/src/gocr.c
  
  static void out_version(int v) {
    fprintf(stderr, " Optical Character Recognition --- gocr "
-@@ -81,7 +85,8 @@ static void help(void) {
+@@ -81,7 +85,8 @@
  	  " -m num    - operation modes (bitpattern, see manual)\n");
    fprintf(stderr, /* string length less than 509 bytes for ISO C89 */
  	  " -a num    - value of certainty (in percent, 0..100, default=95)\n"
@@ -44,18 +44,18 @@ Index: gocr-0.48/src/gocr.c
    fprintf(stderr, /* string length less than 509 bytes for ISO C89 */
  	  " examples:\n"
  	  "\tgocr -m 4 text1.pbm                   # do layout analyzis\n"
-@@ -235,6 +240,10 @@ static char *process_arguments(cfg_t *cf
-         cfg->unrec_marker = s1;
+@@ -236,6 +241,10 @@
+         job->cfg.unrec_marker = s1;
          i++;
          break;
 +      case 'S': /* server mode */
-+	server_setup(s1, cfg->verbose);
++	server_setup(s1, job->cfg.verbose);
 +	i++;
 +	break;
        default:
  	fprintf(stderr, "# unknown option use -h for help\n");
        }
-@@ -312,7 +321,9 @@ static int read_picture(job_t *job) {
+@@ -310,7 +319,9 @@
    int rc=0;
    assert(job);
  
@@ -66,11 +66,11 @@ Index: gocr-0.48/src/gocr.c
      readpcx(job->src.fname, &job->src.p, job->cfg.verbose);
    else
      rc=readpgm(job->src.fname, &job->src.p, job->cfg.verbose);
-Index: gocr-0.48/src/Makefile.in
+Index: gocr-0.50/src/Makefile.in
 ===================================================================
---- gocr-0.48.orig/src/Makefile.in
-+++ gocr-0.48/src/Makefile.in
-@@ -32,7 +32,8 @@ LIBOBJS=pgm2asc.o \
+--- gocr-0.50.orig/src/Makefile.in	2016-03-23 10:51:10.863511252 +0100
++++ gocr-0.50/src/Makefile.in	2016-03-23 10:51:10.859511252 +0100
+@@ -32,7 +32,8 @@
  	pnm.o \
  	pcx.o \
  	progress.o \
@@ -80,7 +80,7 @@ Index: gocr-0.48/src/Makefile.in
  
  # these two lines are for cross-compiling, not tested
  #srcdir = @srcdir@
-@@ -55,7 +56,7 @@ INSTALL=@INSTALL@
+@@ -55,7 +56,7 @@
  SHELL=@SHELL@
  
  DEFS=@DEFS@
@@ -89,15 +89,15 @@ Index: gocr-0.48/src/Makefile.in
  # to see the config.h
  CFLAGS=@CFLAGS@ $(CPPFLAGS) -I../include $(DEFS)
  LDFLAGS=@LDFLAGS@
-@@ -129,4 +130,3 @@ clean:
+@@ -137,4 +138,3 @@
  proper: clean
  	-rm -f gocr libPgm2asc.*
  	-rm -f gocr
 -	
-Index: gocr-0.48/src/server.c
+Index: gocr-0.50/src/server.c
 ===================================================================
---- /dev/null
-+++ gocr-0.48/src/server.c
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gocr-0.50/src/server.c	2016-03-23 10:51:10.859511252 +0100
 @@ -0,0 +1,312 @@
 +/*
 +This is the COSI server mode management for
@@ -411,10 +411,10 @@ Index: gocr-0.48/src/server.c
 +  return 1;
 +}
 +
-Index: gocr-0.48/src/server.h
+Index: gocr-0.50/src/server.h
 ===================================================================
---- /dev/null
-+++ gocr-0.48/src/server.h
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gocr-0.50/src/server.h	2016-03-23 10:51:10.859511252 +0100
 @@ -0,0 +1,33 @@
 +/*
 +This is the COSI server mode management for
@@ -449,11 +449,11 @@ Index: gocr-0.48/src/server.h
 +extern int server_read(char *name, pix *p, int vvv);
 +
 +#endif /* __GOCR_SERVER_H__ */
-Index: gocr-0.48/AUTHORS
+Index: gocr-0.50/AUTHORS
 ===================================================================
---- gocr-0.48.orig/AUTHORS
-+++ gocr-0.48/AUTHORS
-@@ -9,3 +9,4 @@ Bruno Barberi Gnecco <brunobg{at}users.s
+--- gocr-0.50.orig/AUTHORS	2016-03-23 10:51:10.863511252 +0100
++++ gocr-0.50/AUTHORS	2016-03-23 10:51:10.863511252 +0100
+@@ -9,3 +9,4 @@
  Sylvain Giroudon <sylvain.giroudon{at}users.sourceforge.net>
  	* COSI extensions (Common OCR Service Interface)
  	  - XML output format options

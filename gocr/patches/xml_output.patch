@@ -1,8 +1,8 @@
-Index: gocr-0.47/AUTHORS
+Index: gocr-0.50/AUTHORS
 ===================================================================
---- gocr-0.47.orig/AUTHORS
-+++ gocr-0.47/AUTHORS
-@@ -5,3 +5,7 @@ Joerg Schulenburg  <jNOschulen{at}gmx.SP
+--- gocr-0.50.orig/AUTHORS	2016-03-22 18:05:04.833746418 +0100
++++ gocr-0.50/AUTHORS	2016-03-22 18:05:04.825746419 +0100
+@@ -5,3 +5,7 @@
  
  Bruno Barberi Gnecco <brunobg{at}users.sourceforge.net>
  	* Programmer
@@ -10,11 +10,11 @@ Index: gocr-0.47/AUTHORS
 +Sylvain Giroudon <sylvain.giroudon{at}users.sourceforge.net>
 +	* COSI extensions (Common OCR Service Interface)
 +	  - XML output format options
-Index: gocr-0.47/man/man1/gocr.1
+Index: gocr-0.50/man/man1/gocr.1
 ===================================================================
---- gocr-0.47.orig/man/man1/gocr.1
-+++ gocr-0.47/man/man1/gocr.1
-@@ -48,6 +48,25 @@ output \fIformat\fR of the recognized te
+--- gocr-0.50.orig/man/man1/gocr.1	2016-03-22 18:05:04.833746418 +0100
++++ gocr-0.50/man/man1/gocr.1	2016-03-22 18:05:04.825746419 +0100
+@@ -48,6 +48,25 @@
  (ISO8859_1 TeX HTML XML UTF8 ASCII), XML will also output position and
  probability data 
  .TP
@@ -40,11 +40,11 @@ Index: gocr-0.47/man/man1/gocr.1
  \fB\-l\fR \fIlevel\fR
  set grey level to \fIlevel\fR (0<160<=255, default:
  0 for autodetect), darker pixels belong to characters, brighter pixels
-Index: gocr-0.47/src/gocr.c
+Index: gocr-0.50/src/gocr.c
 ===================================================================
---- gocr-0.47.orig/src/gocr.c
-+++ gocr-0.47/src/gocr.c
-@@ -71,6 +71,7 @@ static void help(void) {
+--- gocr-0.50.orig/src/gocr.c	2016-03-22 18:05:04.833746418 +0100
++++ gocr-0.50/src/gocr.c	2016-03-22 18:05:04.825746419 +0100
+@@ -71,6 +71,7 @@
  	  " -p name   - database path including final slash (default is ./db/)\n");
    fprintf(stderr, /* string length less than 509 bytes for ISO C89 */
  	  " -f fmt    - output format (ISO8859_1 TeX HTML XML UTF8 ASCII)\n"
@@ -52,48 +52,48 @@ Index: gocr-0.47/src/gocr.c
  	  " -l num    - threshold grey level 0<160<=255 (0 = autodetect)\n"
  	  " -d num    - dust_size (remove small clusters, -1 = autodetect)\n"
  	  " -s num    - spacewidth/dots (0 = autodetect)\n"
-@@ -185,6 +186,10 @@ static char *process_arguments(cfg_t *cf
+@@ -186,6 +187,10 @@
          fprintf(stderr,"Warning: unknown format (-f %s)\n",s1);
          i++;
          break;
 +      case 'F': /* output filter */
-+	cfg->out_filter = atoi(s1);
++	job->cfg.out_filter = atoi(s1);
 +        i++;
 +        break;
        case 'c': /* list of chars (_ = not recognized chars) */
- 	cfg->lc = s1;
+ 	job->cfg.lc = s1;
  	i++;
-Index: gocr-0.47/src/gocr.h
+Index: gocr-0.50/src/gocr.h
 ===================================================================
---- gocr-0.47.orig/src/gocr.h
-+++ gocr-0.47/src/gocr.h
-@@ -151,6 +151,7 @@ typedef struct {
-   int verbose; /* verbose mode; default value: 0 */
-                /* verbose option (see --help) */
-   FORMAT out_format; /* output format; default value: ISO8859_1*/
-+  int out_filter;    /* XML Output filter: 0=full 1=brief */
-   char *lc; /* debuglist of chars (_ = not recognized chars) */
-             /* default value: "_" */
-   char *db_path; /* pathname for database; default value: NULL */
-Index: gocr-0.47/src/job.c
+--- gocr-0.50.orig/src/gocr.h	2016-03-22 18:05:04.833746418 +0100
++++ gocr-0.50/src/gocr.h	2016-03-22 18:05:04.825746419 +0100
+@@ -179,6 +179,7 @@
+     int verbose; /* verbose mode; default value: 0 */ 
+                  /* verbose option (see --help) */
+     FORMAT out_format; /* output format; default value: ISO8859_1 */
++    int out_filter;    /* XML Output filter: 0=full 1=brief */
+     char *lc; /* debuglist of chars (_ = not recognized chars) */
+               /* default value: "_" */
+     char *db_path; /* pathname for database; default value: NULL */
+Index: gocr-0.50/src/job.c
 ===================================================================
---- gocr-0.47.orig/src/job.c
-+++ gocr-0.47/src/job.c
-@@ -31,6 +31,7 @@ void cfg_init(cfg_t *cfg)
-   cfg->only_numbers = 0;
-   cfg->verbose = 0;
-   cfg->out_format = UTF8; /* old: ISO8859_1; */
-+  cfg->out_filter = 0;
-   cfg->lc = "_";
-   cfg->db_path = (char*)NULL;
-   cfg->cfilter = (char*)NULL;
-Index: gocr-0.47/src/lines.c
+--- gocr-0.50.orig/src/job.c	2016-03-22 18:05:04.833746418 +0100
++++ gocr-0.50/src/job.c	2016-03-22 18:05:04.825746419 +0100
+@@ -37,6 +37,7 @@
+   job->cfg.only_numbers = 0;
+   job->cfg.verbose = 0;
+   job->cfg.out_format = UTF8; /* old: ISO8859_1; */
++  job->cfg.out_filter = 0;
+   job->cfg.lc = "_";
+   job->cfg.db_path = (char*)NULL;
+   job->cfg.cfilter = (char*)NULL;
+Index: gocr-0.50/src/lines.c
 ===================================================================
---- gocr-0.47.orig/src/lines.c
-+++ gocr-0.47/src/lines.c
+--- gocr-0.50.orig/src/lines.c	2016-03-22 18:05:04.833746418 +0100
++++ gocr-0.50/src/lines.c	2016-03-23 10:48:44.007516690 +0100
 @@ -2,6 +2,9 @@
  This is a Optical-Character-Recognition program
- Copyright (C) 2000-2009 Joerg Schulenburg
+ Copyright (C) 2000-2010 Joerg Schulenburg
  
 +XML output filter options added by Sylvain Giroudon
 +for COSI support (Common OCR Service Interface).
@@ -101,9 +101,9 @@ Index: gocr-0.47/src/lines.c
  This program is free software; you can redistribute it and/or
  modify it under the terms of the GNU General Public License
  as published by the Free Software Foundation; either version 2
-@@ -28,6 +31,13 @@ Foundation, Inc., 59 Temple Place - Suit
- #include "gocr.h"
- #include "unicode.h"
+@@ -29,6 +32,12 @@
+ #include "unicode.h" /* decode() */
+ #include "unicode_defs.h" /* UNKNOWN */
  
 +
 +#define XML_HIDE_CHAR   1
@@ -111,29 +111,19 @@ Index: gocr-0.47/src/lines.c
 +#define XML_SHOW_TEXT   4
 +#define XML_SHOW_XGEOM  8
 +
-+
- const char *getTextLine (int line) {
+ const char *getTextLine (List *linelist, int line) {
    int i;
    Element *elem;
-@@ -64,7 +74,7 @@ char *append_to_line(char *buffer, const
-   }
-   if ( *len>0 ) slen= strlen(buffer);  // used buffer
-   alen = strlen(s1);
--  if ( slen+alen+1 >= *len ) {
-+  while ( slen+alen+1 >= *len ) {
-     *len+=512;
-     temp = (char *)realloc(buffer, *len);
-     if( !temp ) { fprintf(stderr,"realloc failed!\n"); *len-=512; return buffer; }
-@@ -139,6 +149,22 @@ int get_least_line_indent(List * boxlist
-    Chars or objects are taken into account. Objects can be text strings
-    or XML strings.
+@@ -145,6 +154,22 @@
+    ToDo: replacing by output_to_stream(FILE *ostream, int mo) ??
+      can be used via pipes (if library) ???
   */
 +
-+static char *str_geometry(int x, int y, int width, int height)
++static char *str_geometry(job_t *job, int x, int y, int width, int height)
 +{
 +  static char str[80];
 +
-+  if ( JOB->cfg.out_filter & XML_SHOW_XGEOM ) {
++  if ( job->cfg.out_filter & XML_SHOW_XGEOM ) {
 +    snprintf(str, sizeof(str), "geometry=\"%dx%d+%d+%d\"", width, height, x, y);
 +  }
 +  else {
@@ -144,10 +134,10 @@ Index: gocr-0.47/src/lines.c
 +}
 +
 +
- void store_boxtree_lines(int mo) {
+ void store_boxtree_lines(job_t *job, int mo) {
    char *buffer;	/* temp buffer for text */
    int i = 0, j = 0;
-@@ -150,7 +176,10 @@ void store_boxtree_lines(int mo) {
+@@ -156,7 +181,10 @@
    int line, line_gap, oldline=-1;
    int left_margin;
    int i1=0, i2=0;
@@ -158,23 +148,23 @@ Index: gocr-0.47/src/lines.c
    buffer = (char *)malloc(len);
    if ( !buffer ) { 
      fprintf(stderr,"malloc failed!\n"); // ToDo: index_to_error_list 
-@@ -158,6 +187,14 @@ void store_boxtree_lines(int mo) {
+@@ -164,6 +192,14 @@
    }
    *buffer = 0;
  
 +  /* Pre-alloc line text buffer */
 +  text_buffer = (char *) malloc(text_len);
-+  if ( text_buffer == NULL ) { 
++  if ( text_buffer == NULL ) {
 +    fprintf(stderr, "malloc failed!\n");
 +    return;
 +  }
 +  *text_buffer = 0;
 +
-   if ( JOB->cfg.verbose&1 ) 
+   if ( job->cfg.verbose&1 ) 
      fprintf(stderr,"# store boxtree to lines ...");
  
-@@ -185,12 +222,16 @@ void store_boxtree_lines(int mo) {
-   if (JOB->cfg.out_format==XML) { /* subject of change */
+@@ -192,12 +228,16 @@
+   if (job->cfg.out_format==XML) { /* subject of change */
      char s1[255]; /* ToDo: avoid potential buffer overflow !!! */
      /* output lot of usefull information for XML filter */
 -    sprintf(s1,"<page x=\"%d\" y=\"%d\" dx=\"%d\" dy=\"%d\">\n",
@@ -183,35 +173,35 @@ Index: gocr-0.47/src/lines.c
 -    sprintf(s1,"<block x=\"%d\" y=\"%d\" dx=\"%d\" dy=\"%d\">\n",
 -       0,0,0,0);
 -    buffer=append_to_line(buffer,s1,&len);
-+    if ( JOB->cfg.out_filter & XML_HIDE_INFO ) {
++    if ( job->cfg.out_filter & XML_HIDE_INFO ) {
 +      buffer=append_to_line(buffer, "<page>\n", &len);
 +    }
 +    else {
-+      sprintf(s1,"<page %s>\n", str_geometry(0, 0, 0, 0));
++      sprintf(s1,"<page %s>\n", str_geometry(job, 0, 0, 0, 0));
 +      buffer=append_to_line(buffer,s1,&len);
 +
-+      sprintf(s1,"<block %s>\n", str_geometry(0, 0, 0, 0));
++      sprintf(s1,"<block %s>\n", str_geometry(job, 0, 0, 0, 0));
 +      buffer=append_to_line(buffer,s1,&len);
 +    }
    } 
  
-   for_each_data(&(JOB->res.boxlist)) {
-@@ -201,18 +242,25 @@ void store_boxtree_lines(int mo) {
-     if (box2->num_ac && box2->wac[0]<JOB->cfg.certainty) box2->c=UNKNOWN;
+   for_each_data(&(job->res.boxlist)) {
+@@ -208,18 +248,26 @@
+     if (box2->num_ac && box2->wac[0]<job->cfg.certainty) box2->c=UNKNOWN;
      if (line!=oldline) {
-       if (JOB->cfg.out_format==XML && oldline>-1) { /* subject of change */
-+	if ( JOB->cfg.out_filter & XML_SHOW_TEXT ) {
+       if (job->cfg.out_format==XML && oldline>-1) { /* subject of change */
++	if ( job->cfg.out_filter & XML_SHOW_TEXT ) {
 +	  buffer=append_to_line(buffer, " <text>", &len);
 +	  buffer=append_to_line(buffer, text_buffer, &len);
 +	  buffer=append_to_line(buffer, "</text>\n", &len);
 +	}
          buffer=append_to_line(buffer,"</line>\n",&len);
-         list_app( &(JOB->res.linelist), (void *)strdup(buffer) ); // wcsdup
+         list_app( &(job->res.linelist), (void *)strdup(buffer) ); // wcsdup
          memset(buffer, 0, len);
 +        memset(text_buffer, 0, text_len);
          j=0;  // reset counter for new line
        } 
-       if (JOB->cfg.out_format==XML) { /* subject of change */
+       if (job->cfg.out_format==XML) { /* subject of change */
          char s1[255]; /* ToDo: avoid potential buffer overflow !!! */
          /* output lot of usefull information for XML filter */
 -        sprintf(s1,"<line x=\"%d\" y=\"%d\" dx=\"%d\" dy=\"%d\" value=\"%d\">\n",
@@ -219,45 +209,55 @@ Index: gocr-0.47/src/lines.c
 -           line_info.x1[line]-line_info.x0[line]+1,
 -           line_info.m4[line]-line_info.m1[line],line);
 +        sprintf(s1,"<line %s value=\"%d\">\n",
-+		str_geometry(line_info.x0[line], line_info.m1[line],
++		str_geometry(job,
++			     line_info.x0[line], line_info.m1[line],
 +			     line_info.x1[line]-line_info.x0[line]+1,
 +			     line_info.m4[line]-line_info.m1[line]),
 +		line);
          buffer=append_to_line(buffer,s1,&len);
        }
        oldline=line;
-@@ -239,67 +287,109 @@ void store_boxtree_lines(int mo) {
+@@ -243,76 +291,120 @@
+         j=0;  // reset counter for new line
+       } 
+     }
++
      if (box2->c == ' ')	// fill large gaps with spaces
      {
-       if (JOB->res.avX) { /* avoid SIGFPE */
-+	int iX = (box2->x1 - box2->x0) / (2 * JOB->res.avX) + 1;
+       if (job->res.avX) { /* avoid SIGFPE */
++	int iX = (box2->x1 - box2->x0) / (2 * job->res.avX) + 1;
 +
-         if (JOB->cfg.out_format==XML) { /* subject of change */
+         if (job->cfg.out_format==XML) { /* subject of change */
 -          char s1[255]; /* ToDo: avoid potential buffer overflow !!! */
 -          /* output lot of usefull information for XML filter */
 -          sprintf(s1," <space x=\"%d\" y=\"%d\" dx=\"%d\" dy=\"%d\" />\n",
 -                  box2->x0,box2->y0,box2->x1-box2->x0+1,box2->y1-box2->y0+1);
 -          buffer=append_to_line(buffer,s1,&len);
 -        } else
--        for (i = (box2->x1 - box2->x0) / (2 * JOB->res.avX) + 1; i > 0; i--) {
--          buffer=append_to_line(buffer," ",&len);
--          j++; /* number of chars in line */
-+	  if ( !(JOB->cfg.out_filter & XML_HIDE_CHAR) ) {
++	  if ( !(job->cfg.out_filter & XML_HIDE_CHAR) ) {
 +	    char s1[255]; /* ToDo: avoid potential buffer overflow !!! */
 +	    /* output lot of usefull information for XML filter */
 +	    sprintf(s1," <space %s nchars=\"%d\" />\n",
-+		    str_geometry(box2->x0,box2->y0,box2->x1-box2->x0+1,box2->y1-box2->y0+1),
++		    str_geometry(job, box2->x0,box2->y0,box2->x1-box2->x0+1,box2->y1-box2->y0+1),
 +		    iX);
 +	    buffer=append_to_line(buffer,s1,&len);
 +	  }
-+	  if ( JOB->cfg.out_filter & XML_SHOW_TEXT ) {
-+	    for (i = iX; i > 0; i--) {
++	  if ( job->cfg.out_filter & XML_SHOW_TEXT ) {
+ // multi spacing is done now in pgm2asc using insert spaces 2010-09-28
+-//        for (i = (box2->x1 - box2->x0 + 1) / (2 * job->res.avX) + 1; i > 0; i--) 
+-        {
+-          buffer=append_to_line(buffer," ",&len);
+-          j++; /* number of chars in line */
++//          for (i = iX; i > 0; i--)
++	    {
 +	      text_buffer = append_to_line(text_buffer, " ", &text_len);
 +	    }
 +	  }
          }
 +	else {
-+	  for (i = iX; i > 0; i--) {
++// multi spacing is done now in pgm2asc using insert spaces 2010-09-28
++//        for (i = iX; i > 0; i--)
++	  {
 +	    buffer=append_to_line(buffer," ",&len);
 +	    j++; /* number of chars in line */
 +	  }
@@ -265,46 +265,47 @@ Index: gocr-0.47/src/lines.c
        }
      }
      else if (box2->c != '\n') {
-       if (j==0 && JOB->res.avX) /* first char in new line? */ {
-         int indent = box2->x0 - JOB->res.lines.x0[box2->line];
+       if (j==0 && job->res.avX) /* first char in new line? */ {
+         int indent = box2->x0 - job->res.lines.x0[box2->line];
 +	int iX = 0;
 +
          /* correct for angle of page as a whole. */
-         if (JOB->res.lines.dx)
-           indent += box2->y0 * JOB->res.lines.dy / JOB->res.lines.dx;
+         if (job->res.lines.dx)
+           indent += box2->y0 * job->res.lines.dy / job->res.lines.dx;
          /* subtract the base margin. */
          indent -= left_margin;
--        if (JOB->cfg.out_format==XML) { /* subject of change */
+-        if (job->cfg.out_format==XML) { /* subject of change */
 -          char s1[255]; /* ToDo: avoid potential buffer overflow !!! */
 -          /* output lot of usefull information for XML filter */
 -          sprintf(s1," <space x=\"%d\" y=\"%d\" dx=\"%d\" dy=\"%d\" />\n",
 -                  box2->x0,box2->y0,box2->x1-box2->x0+1,box2->y1-box2->y0+1);
 -          buffer=append_to_line(buffer,s1,&len);
 -        } else
--        for (i = indent / JOB->res.avX; i > 0; i--) {
--          buffer=append_to_line(buffer," ",&len); j++;
--        }
-+
-+	if ( JOB->res.avX > 0 )
-+	  iX = indent / JOB->res.avX;
++	if ( job->res.avX > 0 )
++	  iX = indent / job->res.avX;
 +
 +	if ( iX > 0 ) {
-+	  if (JOB->cfg.out_format==XML) { /* subject of change */
-+	    if ( !(JOB->cfg.out_filter & XML_HIDE_CHAR) ) {
++	  if (job->cfg.out_format==XML) { /* subject of change */
++	    if ( !(job->cfg.out_filter & XML_HIDE_CHAR) ) {
 +	      char s1[255]; /* ToDo: avoid potential buffer overflow !!! */
 +	      /* output lot of usefull information for XML filter */
 +	      sprintf(s1," <space %s nchars=\"%d\" />\n",
-+		      str_geometry(box2->x0,box2->y0,box2->x1-box2->x0+1,box2->y1-box2->y0+1),
++		      str_geometry(job, box2->x0,box2->y0,box2->x1-box2->x0+1,box2->y1-box2->y0+1),
 +		      iX);
 +	      buffer=append_to_line(buffer,s1,&len);
 +	    }
-+	    if ( JOB->cfg.out_filter & XML_SHOW_TEXT ) {
++	    if ( job->cfg.out_filter & XML_SHOW_TEXT ) {
+ // ToDo: do the multi "\n" earlier in pgm2asc (like multi spacing)
+-        for (i = indent / job->res.avX; i > 0; i--) {
+-          buffer=append_to_line(buffer," ",&len); j++;
+-        }
 +	      for (i = iX; i > 0; i--) {
 +		text_buffer = append_to_line(text_buffer, " ", &text_len);
 +	      }
 +	    }
 +	  }
 +	  else {
++// ToDo: do the multi "\n" earlier in pgm2asc (like multi spacing)
 +	    for (i = iX; i > 0; i--) {
 +	      buffer=append_to_line(buffer," ",&len); j++;
 +	    }
@@ -313,7 +314,7 @@ Index: gocr-0.47/src/lines.c
        }
 +
 +      /* Dump XML detailed character info (begin) */
-       if (JOB->cfg.out_format==XML) { /* subject of change */
+       if (job->cfg.out_format==XML) { /* subject of change */
 -        char s1[255]; /* ToDo: avoid potential buffer overflow !!! */
 -        /* output lot of usefull information for XML filter */
 -        sprintf(s1," <box x=\"%d\" y=\"%d\" dx=\"%d\" dy=\"%d\" value=\"",
@@ -321,11 +322,11 @@ Index: gocr-0.47/src/lines.c
 -        buffer=append_to_line(buffer,s1,&len);
 -        if (box2->num_ac>1) { /* ToDo: output a list of alternatives */
 -        }
-+	if ( !(JOB->cfg.out_filter & XML_HIDE_CHAR) ) {
++	if ( !(job->cfg.out_filter & XML_HIDE_CHAR) ) {
 +	  char s1[255]; /* ToDo: avoid potential buffer overflow !!! */
 +	  /* output lot of usefull information for XML filter */
 +	  sprintf(s1," <box %s value=\"",
-+		  str_geometry(box2->x0,box2->y0,box2->x1-box2->x0+1,box2->y1-box2->y0+1));
++		  str_geometry(job, box2->x0,box2->y0,box2->x1-box2->x0+1,box2->y1-box2->y0+1));
 +	  buffer=append_to_line(buffer,s1,&len);
 +	  if (box2->num_ac>1) { /* ToDo: output a list of alternatives */
 +	  }
@@ -333,12 +334,12 @@ Index: gocr-0.47/src/lines.c
        }
 -      if (box2->c != UNKNOWN  &&  box2->c != 0) {
 -        buffer=
--          append_to_line(buffer,decode(box2->c,JOB->cfg.out_format),&len);
+-          append_to_line(buffer,decode(box2->c,job->cfg.out_format),&len);
 +
 +      /* Dump current character */
 +      if (box2->c != UNKNOWN && box2->c != 0) {
-+	const char *s1 = decode(box2->c, JOB->cfg.out_format);
-+	if ( (JOB->cfg.out_format!=XML) || !(JOB->cfg.out_filter & XML_HIDE_CHAR) )
++	const char *s1 = decode(box2->c, job->cfg.out_format);
++	if ( (job->cfg.out_format!=XML) || !(job->cfg.out_filter & XML_HIDE_CHAR) )
 +	  buffer = append_to_line(buffer, s1, &len);
 +	text_buffer = append_to_line(text_buffer, s1, &text_len);
          if (box2->c >  ' ' &&
@@ -347,33 +348,33 @@ Index: gocr-0.47/src/lines.c
 -        wchar_t cc; cc=box2->c;
 +	char *s1 = "";
          if (box2->num_ac>0 && box2->tas[0]
-                 && (JOB->cfg.out_format!=XML || box2->tas[0][0]!='<')) {
+           && (/* job->cfg.out_format!=XML || 2010-10 */ box2->tas[0][0]!='<')
+           ) {  // 2010-10 output XML code after XML frame, see below!
 -          /* output glued chars or ... (?) Jan08 */
 -          buffer=append_to_line(buffer,box2->tas[0],&len);
 +	  s1 = box2->tas[0];
            j+=strlen(box2->tas[0]);
-         } else {  /* ToDo: leave string empty? set placeholder per option */
--           /* output dummy string to mark UNKNOWN */
--           if(JOB->cfg.unrec_marker[0])
--             buffer = append_to_line(buffer, JOB->cfg.unrec_marker, &len);
-+          /* output dummy string to mark UNKNOWN */
-+          if(JOB->cfg.unrec_marker[0])
-+            s1 = JOB->cfg.unrec_marker;
+         } // else 2010-10-07
+         if (box2->num_ac == 0 || box2->c == UNKNOWN) {
+           /* ToDo: leave string empty? set placeholder per option */
+           /* output dummy string to mark UNKNOWN */
+           if (job->cfg.unrec_marker[0])
+-            buffer = append_to_line(buffer, job->cfg.unrec_marker, &len);
++	    s1 = job->cfg.unrec_marker;
          }
-+	if ( (JOB->cfg.out_format!=XML) || !(JOB->cfg.out_filter & XML_HIDE_CHAR) )
++	if ( (job->cfg.out_format!=XML) || !(job->cfg.out_filter & XML_HIDE_CHAR) )
 +	  buffer = append_to_line(buffer, s1, &len);
 +	text_buffer = append_to_line(text_buffer, s1, &text_len);
        }
--      if (JOB->cfg.out_format==XML) {
+-      if (job->cfg.out_format==XML) {
 -        if (box2->num_ac>0) {
-+
 +      /* Dump XML detailed character info (end) */
-+      if ( (JOB->cfg.out_format==XML) && !(JOB->cfg.out_filter & XML_HIDE_CHAR) ) {
-+        if ( (box2->num_ac>0) && !(JOB->cfg.out_filter & XML_HIDE_INFO) ) {
++      if ( (job->cfg.out_format==XML) && !(job->cfg.out_filter & XML_HIDE_CHAR) ) {
++        if ( (box2->num_ac>0) && !(job->cfg.out_filter & XML_HIDE_INFO) ) {
            /* output alist ToDo: separate <altbox ...> */
            int i1; char s1[256];
            sprintf(s1,"\" numac=\"%d\" weights=\"",box2->num_ac);
-@@ -323,6 +413,7 @@ void store_boxtree_lines(int mo) {
+@@ -336,6 +428,7 @@
          }
          buffer=append_to_line(buffer,"\" />\n",&len);
        }
@@ -381,30 +382,30 @@ Index: gocr-0.47/src/lines.c
        if (box2->num_ac && box2->tas[0]) {
          if (box2->tas[0][0]=='<') { /* output special XML object */ 
            buffer=append_to_line(buffer,box2->tas[0],&len);
-@@ -334,13 +425,25 @@ void store_boxtree_lines(int mo) {
+@@ -348,12 +441,24 @@
      }
      i++;
-   } end_for_each(&(JOB->res.boxlist));
+   } end_for_each(&(job->res.boxlist));
 +
 +  /* Terminate XML document cleanly */
-   if (JOB->cfg.out_format==XML && oldline>-1) { /* subject of change */
-+    if ( JOB->cfg.out_filter & XML_SHOW_TEXT ) {
+   if (job->cfg.out_format==XML && oldline>-1) { /* subject of change */
++    if ( job->cfg.out_filter & XML_SHOW_TEXT ) {
 +      buffer=append_to_line(buffer, " <text>", &len);
 +      buffer=append_to_line(buffer, text_buffer, &len);
 +      buffer=append_to_line(buffer, "</text>\n", &len);
 +    }
      buffer=append_to_line(buffer,"</line>\n",&len);
    } 
-   if (JOB->cfg.out_format==XML) { /* subject of change */
+   if (job->cfg.out_format==XML) { /* subject of change */
 -    buffer=append_to_line(buffer,"</block>\n</page>\n",&len);
-+    if ( !(JOB->cfg.out_filter & XML_HIDE_INFO) )
+-  } 
++    if ( !(job->cfg.out_filter & XML_HIDE_INFO) )
 +      buffer=append_to_line(buffer,"</block>\n",&len);
 +    buffer=append_to_line(buffer,"</page>\n",&len);
-   } 
- 
++  }
++
 +  /* Free line text buffer */
 +  free(text_buffer);
-+
+ 
    /* do not forget last line */
    // is there no \n in the last line? If there is, delete next line.
-   list_app( &(JOB->res.linelist), (void *)strdup(buffer) );

@@ -1,10 +1,8 @@
 ##
-## $Id: Makefile 46 2010-06-07 13:35:13Z giroudon $
-##
 ## Download + Build sequence for GOCR with COSI server support
 ##
 
-VERSION := 0.48
+VERSION := 0.50
 PKGNAME := gocr-srv
 PKGVERSION := $(VERSION)
 PKGRELEASE := 2
