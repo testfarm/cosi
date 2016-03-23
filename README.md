@@ -14,8 +14,11 @@ COSI has been successfully implemented and experimented on the following well-kn
 
 ## Resources
 - The detailed technical description of COSI: http://www.testfarm.org/documents/IP090002-en%20COSI%20-%20The%20Common%20OCR%20Service%20Interface.3.pdf
-- The GitHub Page: https://github.com/testfarm/cosi
+- The COSI GitHub page: https://github.com/testfarm/cosi
 - The old COSI SourceForge project page: https://sourceforge.net/p/cosi
+- Tesseract-OCR GitHub page: https://github.com/tesseract-ocr
+- GNU Ocrad: https://www.gnu.org/software/ocrad/
+- GOCR SourceForge project page: http://jocr.sourceforge.net/
 
 ## Bringing COSI support to existing OCR agents
 As of today, COSI support is available on Linux platforms only.
