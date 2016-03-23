@@ -1,4 +1,3 @@
-# $Id: RPM.spec 42 2010-06-03 14:43:33Z giroudon $
 #
 # RPM build spec for creating a binary package
 # of the COSI-compliant flavour of Tesseract-OCR
@@ -10,20 +9,18 @@
 Name:     @NAME@
 Version:  @VERSION@
 Release:  @RELEASE@
-Summary:  The Tesseract Open source OCR Engine, with COSI server support
+Summary:  COSI server using the Tesseract OCR Engine
 Packager: Sylvain Giroudon <giroudon {at} users.sourceforge.net>
+Requires: tesseract
 
-Group:          Graphics
+Group:          testfarm/app
 License:        Apache License
 URL:            https://github.com/testfarm/cosi
 
 %description
-The Tesseract OCR engine was one of the top 3 engines in the 1995 UNLV
-Accuracy test. Since then it has had little work done on it, but it is
-probably one of the most accurate open source OCR engines available. The
-source code will read a binary, grey or color image and output text. A tiff
-reader is built in that will read uncompressed TIFF images, or libtiff can
-be added to read compressed images.
+This package provides an OCR server using the COSI API and the Tesseract OCR library.
+COSI means "Common OCR Service Interface". It provides a common client-server interface
+for various OCR engines (Tesseract, GNU Ocrad and GOCR).
 
 %files -f RPM.files
 %defattr(-,root,root,-)
