@@ -3,8 +3,8 @@
 # Install packages needed to build COSI OCR agents and utilities
 #
 
-PACKAGES_rpm="gcc gcc-c++ lzip help2man netpbm-devel libtiff-devel libglade2-devel readline-devel tesseract-devel"
-PACKAGES_deb="build-essential lzip help2man libnetpbm10-dev libtiff5-dev libglade2-dev libpng12-dev libreadline-dev libtesseract-dev"
+PACKAGES_rpm="gcc gcc-c++ quilt lzip help2man netpbm-devel libtiff-devel libglade2-devel readline-devel tesseract-devel"
+PACKAGES_deb="build-essential quilt lzip help2man libnetpbm10-dev libtiff5-dev libglade2-dev libpng12-dev libreadline-dev libtesseract-dev"
 
 if [ -f /etc/os-release ]; then
     echo "DISTRO = Debian/Ubuntu"
