@@ -8,7 +8,7 @@ COSI supports existing OCR tools such as Tesseract, GOCR or GNU Ocrad.
 COSI is an open standard targeted at using different OCR (Optical Character Recognition) programs as external agents in a unified manner. COSI allows to integrate an OCR tool into various top-level applications using a client-server approach.
 
 COSI has been successfully implemented and experimented on the following well-known open source OCR applications:
-- Tesseract-OCR: version 2.04
+- Tesseract-OCR: using the natively installed Tesseract library (typ. 3.03 in Ubuntu 14.04LTS).
 - GNU Ocrad: version 0.25
 - GOCR: version 0.50
 
