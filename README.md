@@ -13,7 +13,7 @@ COSI has been successfully implemented and experimented on the following well-kn
 - GOCR: version 0.50
 
 ## Resources
-- The detailed technical description of COSI: http://www.testfarm.org/documents/IP090002-en%20COSI%20-%20The%20Common%20OCR%20Service%20Interface.3.pdf
+- The detailed technical description of COSI: http://www.testfarm.org/documents/IP090002-en%20COSI%20-%20The%20Common%20OCR%20Service%20Interface.4.pdf
 - The COSI GitHub page: https://github.com/testfarm/cosi
 - The old COSI SourceForge project page: https://sourceforge.net/p/cosi
 - Tesseract-OCR GitHub page: https://github.com/tesseract-ocr
