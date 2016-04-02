@@ -1,6 +1,4 @@
 ##
-## $Id: Makefile 45 2010-06-07 13:34:24Z giroudon $
-##
 ## Download + Build sequence for OCRAD with COSI server support
 ##
 
@@ -38,4 +36,4 @@ install: $(BIN)
 	$(RM) $(INSTALLDIR)
 	make -C $(SRCDIR) install
 	$(RM) $(INSTALLDIR)/usr/share/info/dir
-	$(RM) $(INSTALLDIR)/usr/include $(INSTALLDIR)/usr/lib
+	$(CP) ocrad-srv $(INSTALLDIR)/usr/bin/

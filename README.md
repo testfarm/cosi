@@ -78,10 +78,10 @@ $ cosi-viewer <shmid> | tesseract-srv <shmid>
 
 #### Using GOCR
 ```
-$ cosi-viewer <shmid> | gocr -f XML -F 10 -S <shmid>
+$ cosi-viewer <shmid> | gocr-srv <shmid>
 ```
 
 #### Using GNU Ocrad
 ```
-$ cosi-viewer <shmid> | ocrad -x - -Fxml -S <shmid>
+$ cosi-viewer <shmid> | ocrad-srv <shmid>
 ```

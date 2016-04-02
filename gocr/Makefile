@@ -17,6 +17,7 @@ include ../defs.mk
 
 DOCFILES = AUTHORS BUGS CREDITS HISTORY README READMEde.txt REMARK.txt REVIEW TODO gpl.html doc/gocr.html
 DOCDIR = $(INSTALLDIR)/usr/share/doc/$(SRCDIR)
+BINDIR = $(INSTALLDIR)/usr/bin
 
 $(BIN): src
 	(cd $(SRCDIR) && ./configure --prefix=$(INSTALLDIR)/usr)
@@ -38,4 +39,5 @@ install: $(BIN)
 	$(RM) $(INSTALLDIR)
 	make -C $(SRCDIR) install
 	$(MKDIR) $(DOCDIR)
-	(cd $(SRCDIR) && $(CP) $(DOCFILES) $(DOCDIR))
+	$(CP) $(DOCFILES:%=$(SRCDIR)/%) $(DOCDIR)
+	$(CP) gocr-srv $(BINDIR)

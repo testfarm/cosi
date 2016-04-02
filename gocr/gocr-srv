@@ -1,0 +1,2 @@
+#!/bin/sh
+exec gocr -f XML -F 10 -S $*
