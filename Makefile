@@ -1,10 +1,8 @@
 ##
-## $Id: Makefile 41 2010-06-03 14:40:11Z giroudon $
-##
 ## COSI - The Common OCR Service Interface
 ## Top-level build rules
 ##
-## Copyright (C) 2007-2010 Sylvain Giroudon
+## Copyright (C) 2007-2016 Sylvain Giroudon
 ##
 ## This program is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -15,11 +13,6 @@
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the GNU
 ## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.  
 ##
 
 SUBDIRS = gocr tesseract ocrad utils
@@ -41,4 +34,9 @@ distclean:
 rpm:
 	@for dir in $(SUBDIRS); do \
 	  make -C $$dir rpm; \
+	done
+
+deb:
+	@for dir in $(SUBDIRS); do \
+	  make -C $$dir deb; \
 	done
