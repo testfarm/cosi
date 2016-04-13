@@ -1,5 +1,15 @@
 ##
+## COSI - The Common OCR Service Interface
 ## Build rules for COSI server based on Tesseract library
+##
+## Copyright (C) 2007-2016 Sylvain Giroudon
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+##
+## The Tesseract-OCR tool and library are licensed under the Apache License, Version 2.0.
+## See https://github.com/tesseract-ocr/tesseract for further details.
 ##
 
 PKGNAME := tesseract-srv
@@ -10,8 +20,8 @@ PKGVERSION := $(shell echo $(SHORT_VERSION:v%=%) | cut -d- -f1)
 PKGRELEASE := $(shell echo $(SHORT_VERSION:v%=%) | cut -d- -f2)
 
 PKGDIR := $(shell pwd)/out
-INSTALLDIR = $(PKGDIR)/root
-BINDIR = $(INSTALLDIR)/usr/bin
+DESTDIR = $(PKGDIR)/root
+BINDIR = $(DESTDIR)/usr/bin
 
 CC = g++
 RM = /bin/rm -rf

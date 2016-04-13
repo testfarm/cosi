@@ -14,11 +14,6 @@
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the GNU
 ## General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.  
-##
 
 VERSION := 0.2
 PKGNAME := cosi-utils
@@ -26,7 +21,7 @@ PKGVERSION := $(VERSION)
 PKGRELEASE := 1
 
 export PKGDIR := $(shell pwd)/out
-export INSTALLDIR = $(PKGDIR)/root
+export DESTDIR = $(PKGDIR)/root
 
 include defs.mk
 

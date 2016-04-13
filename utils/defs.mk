@@ -1,6 +1,4 @@
 ##
-## $Id: defs.mk 50 2012-04-18 20:51:33Z giroudon $
-##
 ## COSI - The Common OCR Service Interface
 ## Top-level Makefile definitions
 ## 
@@ -16,11 +14,6 @@
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the GNU
 ## General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.  
-##
 
 CC = gcc
 LD = gcc
@@ -28,8 +21,8 @@ LD = gcc
 CFLAGS = -Wall -O2
 LDFLAGS =
 
-ifdef INSTALLDIR
-BINDIR = $(INSTALLDIR)/usr/bin
+ifdef DESTDIR
+BINDIR = $(DESTDIR)/usr/bin
 else
 BINDIR = /usr/local/bin
 endif
