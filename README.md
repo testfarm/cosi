@@ -34,6 +34,7 @@ the corresponding .rpm and .deb packages.
 ```
 $ git clone https://github.com/testfarm/cosi.git
 $ cd cosi
+$ ./install-tools.sh
 $ make
 ```
 
