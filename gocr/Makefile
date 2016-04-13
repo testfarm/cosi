@@ -16,15 +16,20 @@ BIN = $(SRCDIR)/src/gocr
 include ../defs.mk
 
 DOCFILES = AUTHORS BUGS CREDITS HISTORY README READMEde.txt REMARK.txt REVIEW TODO gpl.html doc/gocr.html
-DOCDIR = $(INSTALLDIR)/usr/share/doc/$(SRCDIR)
+SHAREDIR = $(INSTALLDIR)/usr/share
+DOCDIR = $(SHAREDIR)/doc/gocr
 BINDIR = $(INSTALLDIR)/usr/bin
 
-$(BIN): src
-	(cd $(SRCDIR) && ./configure --prefix=$(INSTALLDIR)/usr)
+.PHONY: src config
+
+$(BIN): src config
 	make -C $(SRCDIR) all doc
 
-src: $(SRCDIR)/src/server.c
+config: $(SRCDIR)/config.status
+$(SRCDIR)/config.status:
+	(cd $(SRCDIR) && ./configure --prefix=/usr)
 
+src: $(SRCDIR)/src/server.c
 $(SRCDIR)/src/server.c: $(SRCDIR)/patches/series
 	(cd $(SRCDIR) && quilt push -a)
 
@@ -37,7 +42,8 @@ $(SRCDIR)/patches/series: $(TARBALL)
 
 install: $(BIN)
 	$(RM) $(INSTALLDIR)
-	make -C $(SRCDIR) install
-	$(MKDIR) $(DOCDIR)
-	$(CP) $(DOCFILES:%=$(SRCDIR)/%) $(DOCDIR)
+	$(MKDIR) $(BINDIR) $(SHAREDIR) $(DOCDIR)
+	make -C $(SRCDIR)/src DESTDIR=$(INSTALLDIR)/usr install
+	make -C $(SRCDIR)/man DESTDIR=$(SHAREDIR) install
+	$(CP) $(DOCFILES:%=$(SRCDIR)/%) $(DOCDIR)/
 	$(CP) gocr-srv $(BINDIR)

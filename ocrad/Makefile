@@ -16,12 +16,16 @@ BIN = $(SRCDIR)/$(NAME)
 
 include ../defs.mk
 
-$(BIN): src
-	(cd $(SRCDIR) && ./configure --prefix=$(INSTALLDIR)/usr)
+.PHONY: src config
+
+$(BIN): src config
 	make -C $(SRCDIR) all doc
 
-src: $(SRCDIR)/cosi.h
+config: $(SRCDIR)/Makefile
+$(SRCDIR)/Makefile:
+	(cd $(SRCDIR) && ./configure --prefix=/usr)
 
+src: $(SRCDIR)/cosi.h
 $(SRCDIR)/cosi.h: $(SRCDIR)/patches/series
 	(cd $(SRCDIR) && quilt push -a)
 
@@ -34,6 +38,6 @@ $(SRCDIR)/patches/series: $(TARBALL)
 
 install: $(BIN)
 	$(RM) $(INSTALLDIR)
-	make -C $(SRCDIR) install
-	$(RM) $(INSTALLDIR)/usr/share/info/dir
+	make -C $(SRCDIR) DESTDIR=$(INSTALLDIR) install
+	$(RM) $(INSTALLDIR)/usr/share/info/dir $(INSTALLDIR)/usr/lib $(INSTALLDIR)/usr/include
 	$(CP) ocrad-srv $(INSTALLDIR)/usr/bin/

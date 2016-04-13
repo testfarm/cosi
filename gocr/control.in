@@ -4,4 +4,5 @@ Version: @VERSION@
 Architecture: @ARCH@
 Maintainer: Sylvain Giroudon <giroudon {at} users.sourceforge.net>
 Section: testfarm/app
+Replaces: gocr
 Description: The GOCR Open source OCR Engine, with COSI server support
