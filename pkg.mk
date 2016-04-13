@@ -17,6 +17,11 @@
 
 DEBARCH = $(shell dpkg-architecture -qDEB_HOST_ARCH)
 
+VERSION := $(shell git describe --long --always --dirty 2>/dev/null || cat VERSION 2>/dev/null)
+SHORT_VERSION := $(shell echo $(VERSION) | sed -e 's/-dirty$$//' -e 's/-[a-zA-Z0-9]\+$$//')
+PKGVERSION ?= $(shell echo $(SHORT_VERSION:v%=%) | cut -d- -f1)
+PKGRELEASE ?= $(shell echo $(SHORT_VERSION:v%=%) | cut -d- -f2)
+
 rpm: install
 	$(MKDIR) $(PKGDIR)/BUILD $(PKGDIR)/RPMS
 	find $(DESTDIR) -type f | sed 's|^'$(DESTDIR)'||' > $(PKGDIR)/BUILD/RPM.files

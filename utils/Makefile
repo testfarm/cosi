@@ -15,12 +15,9 @@
 ## General Public License for more details.
 ##
 
-VERSION := 0.2
 PKGNAME := cosi-utils
-PKGVERSION := $(VERSION)
-PKGRELEASE := 1
 
-export PKGDIR := $(shell pwd)/out
+PKGDIR := $(shell pwd)/out
 export DESTDIR = $(PKGDIR)/root
 
 include defs.mk
