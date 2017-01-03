@@ -12,16 +12,15 @@
 ## See https://www.gnu.org/software/ocrad/ for further details.
 ##
 
-NAME = ocrad
-VERSION = 0.25
+NAME := ocrad
+APP_VERSION := 0.25
 PKGNAME := ocrad-srv
-PKGVERSION := $(VERSION)
-PKGRELEASE := 1
+PKGVERSION_PREFIX := $(APP_VERSION)-
 
 URL = http://ftp.gnu.org/gnu/ocrad
-TARBALL = $(NAME)-$(VERSION).tar.lz
+TARBALL = $(NAME)-$(APP_VERSION).tar.lz
 
-SRCDIR = $(NAME)-$(VERSION)
+SRCDIR = $(NAME)-$(APP_VERSION)
 BIN = $(SRCDIR)/$(NAME)
 
 include ../defs.mk

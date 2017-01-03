@@ -13,6 +13,7 @@
 ##
 
 PKGNAME := tesseract-srv
+PKGVERSION_PREFIX = $(shell ./tesseract-version)-
 
 PKGDIR := $(shell pwd)/out
 DESTDIR = $(PKGDIR)/root
@@ -27,10 +28,14 @@ CFLAGS = -Wall
 LDFLAGS = -ltesseract
 
 BINS = tesseract-srv
+TOOLS = tesseract-version
 
-all: $(BINS)
+all: $(BINS) $(TOOLS)
 
 tesseract-srv: tesseract-srv.o
+tesseract-version: tesseract-version.o
+
+$(BINS) $(TOOLS):
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 %.o: %.cpp

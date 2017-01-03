@@ -12,15 +12,14 @@
 ## See http://jocr.sourceforge.net/ for further details.
 ##
 
-VERSION := 0.50
+APP_VERSION := 0.50
 PKGNAME := gocr-srv
-PKGVERSION := $(VERSION)
-PKGRELEASE := 2
+PKGVERSION_PREFIX := $(APP_VERSION)-
 
 URL = http://www-e.uni-magdeburg.de/jschulen/ocr
-TARBALL = gocr-$(VERSION).tar.gz
+TARBALL = gocr-$(APP_VERSION).tar.gz
 
-SRCDIR = gocr-$(VERSION)
+SRCDIR = gocr-$(APP_VERSION)
 BIN = $(SRCDIR)/src/gocr
 
 include ../defs.mk

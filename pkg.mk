@@ -27,7 +27,7 @@ rpm: install
 	find $(DESTDIR) -type f | sed 's|^'$(DESTDIR)'||' > $(PKGDIR)/BUILD/RPM.files
 	echo '%_topdir '$(PKGDIR) > $(HOME)/.rpmmacros
 	sed spec.in -e 's/@NAME@/$(PKGNAME)/' \
-	    -e 's/@VERSION@/$(PKGVERSION)/' \
+	    -e 's/@VERSION@/$(PKGVERSION_PREFIX)$(PKGVERSION)/' \
 	    -e 's/@RELEASE@/$(PKGRELEASE)/' \
 	    > $(PKGDIR)/spec
 	rpmbuild -bb $(PKGDIR)/spec --buildroot $(DESTDIR) --target `arch`
@@ -39,7 +39,7 @@ deb: install
 		[ -f $$file ] && install -m 755 $$file $(DESTDIR)/DEBIAN/; done; \
 	grep -v '^#' control.in | \
 	sed -e 's/@NAME@/$(PKGNAME)/' \
-	    -e 's/@VERSION@/$(PKGVERSION)-$(PKGRELEASE)/' \
+	    -e 's/@VERSION@/$(PKGVERSION_PREFIX)$(PKGVERSION)-$(PKGRELEASE)/' \
 	    -e 's/@ARCH@/$(DEBARCH)/' \
 	    > $(DESTDIR)/DEBIAN/control
-	fakeroot dpkg-deb --build $(DESTDIR) $(PKGDIR)/$(PKGNAME)_$(PKGVERSION)-$(PKGRELEASE)_$(DEBARCH).deb
+	fakeroot dpkg-deb --build $(DESTDIR) $(PKGDIR)/$(PKGNAME)_$(PKGVERSION_PREFIX)$(PKGVERSION)-$(PKGRELEASE)_$(DEBARCH).deb
