@@ -17,8 +17,9 @@
 
 PKGNAME := cosi-utils
 
-PKGDIR := $(shell pwd)/out
-export DESTDIR = $(PKGDIR)/root
+OUTDIR := $(shell pwd)/out
+PKGDIR := $(OUTDIR)
+DESTDIR = $(OUTDIR)/root
 
 include defs.mk
 
@@ -33,12 +34,12 @@ all: $(OBJS)
 
 install: all
 	for dir in $(SUBDIRS); do \
-	  make -C $$dir install; \
+	  make -C $$dir DESTDIR=$(DESTDIR) install; \
 	done
 
 clean::
 	for dir in $(SUBDIRS); do \
-	  make -C $$dir clean; \
+	  make -C $$dir DESTDIR=$(DESTDIR) clean; \
 	done
 
 include rules.mk

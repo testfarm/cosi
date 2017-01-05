@@ -16,8 +16,9 @@
 ##
 
 ROOTDIR := $(dir $(lastword $(MAKEFILE_LIST)))
-PKGDIR := $(shell pwd)/out
-DESTDIR = $(PKGDIR)/root
+OUTDIR := $(shell pwd)/out
+PKGDIR := $(OUTDIR)
+DESTDIR = $(OUTDIR)/root
 
 RM = /bin/rm -rf
 MKDIR = /bin/mkdir -p

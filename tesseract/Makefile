@@ -15,8 +15,9 @@
 PKGNAME := tesseract-srv
 PKGVERSION_PREFIX = $(shell ./tesseract-version)-
 
-PKGDIR := $(shell pwd)/out
-DESTDIR = $(PKGDIR)/root
+OUTDIR := $(shell pwd)/out
+PKGDIR := $(OUTDIR)
+DESTDIR = $(OUTDIR)/root
 BINDIR = $(DESTDIR)/usr/bin
 
 CC = g++

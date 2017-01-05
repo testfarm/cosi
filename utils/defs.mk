@@ -15,6 +15,11 @@
 ## General Public License for more details.
 ##
 
+RM = /bin/rm -rf
+MKDIR = /bin/mkdir -p
+MV = /bin/mv -fv
+CP = /bin/cp -fv
+
 CC = gcc
 LD = gcc
 
@@ -26,8 +31,3 @@ BINDIR = $(DESTDIR)/usr/bin
 else
 BINDIR = /usr/local/bin
 endif
-
-RM = /bin/rm -rf
-MKDIR = /bin/mkdir -p
-MV = /bin/mv -fv
-CP = /bin/cp -fv
